@@ -436,36 +436,82 @@ The agent does the work.
 
 ## First-Time Setup
 
-When `~/.open-your-eyes/` doesn't exist, the agent runs the onboarding flow.
+When `~/.open-your-eyes/` doesn't exist or has no capabilities configured, the agent runs the onboarding flow. The validation gate isn't a throwaway test page — **it's the dashboard itself**. The first thing the agent deploys is your control panel.
 
 ### Open With
 
-> I'm going to set you up so I can deploy, publish, and ship your projects automatically. This is a one-time setup — once done, it works for every project on this machine.
+> I'm going to set you up so I can deploy and ship your projects automatically. This is a one-time setup — once done, it works for every project on this machine.
 >
-> I need to know what services you already use. Tell me about your setup:
+> At the end, I'll deploy your Open Your Eyes dashboard as the first project. If it loads on your domain, everything works.
 >
+> Tell me about your existing setup:
 > - Where do you host websites? (Vercel, Netlify, a traditional webhost, a VPS, etc.)
 > - Do you own any domains? Where are they registered? Where is DNS managed?
-> - Do you use a database service? (Supabase, Firebase, PlanetScale, or part of your hosting?)
-> - Do you accept payments? (Stripe, PayPal, etc.)
-> - Do you send emails from apps? (Resend, SendGrid, or SMTP from your host?)
-> - Anything else? (Analytics, error tracking, app stores, etc.)
+> - Do you want a dev environment? (I can deploy previews to subdomains of a domain you own)
 
 ### Process
 
 ```
 1. Listen to user's answers
-2. For EACH provider they mention:
-   a. Fetch that provider's current API docs
-   b. Determine what credentials are needed
-   c. Guide user to create/find credentials
-   d. Validate each credential
-   e. Store in ~/.open-your-eyes/secrets.env
-   f. Create provider file in ~/.open-your-eyes/providers/
-3. Build capabilities.yaml from all configured providers
-4. Run validation gates for configured capabilities
-5. Report what's ready
+2. Collect MINIMUM credentials to deploy (hosting + DNS):
+   a. Fetch the provider's current API docs
+   b. Guide user to create/find credentials
+   c. Validate each credential
+   d. Store in ~/.open-your-eyes/secrets.env
+   e. Create provider file in ~/.open-your-eyes/providers/
+3. Build capabilities.yaml
+4. DEPLOY THE DASHBOARD as validation:
+   a. Build the dashboard (npm run build)
+   b. Deploy to user's hosting provider
+   c. Point a subdomain (e.g., oye.yourdomain.com) at it via DNS
+   d. Wait for it to load
+   e. If it loads: setup is complete, everything works
+   f. If it fails: diagnose, fix, retry
+5. Ask about additional services (database, payments, email, etc.)
+   → These are optional — the user can add them later from any project
 ```
+
+### The Dashboard as Validation Gate
+
+The dashboard is the perfect first deploy because:
+- **It proves hosting works** — code got built and served
+- **It proves DNS works** — the subdomain resolves
+- **It proves the API pipeline works** — the dashboard reads from ~/.open-your-eyes/ and shows live data
+- **It's immediately useful** — the user has a control panel showing their setup
+- **It's self-referential** — the dashboard shows itself as a deployed project
+
+```
+FIRST DEPLOY FLOW:
+
+1. Agent builds dashboard:
+   cd ~/.open-your-eyes/dashboard && npm run build
+
+2. Agent deploys built files to user's host:
+   - Vercel API → deploy dist/
+   - FTP → upload dist/ to /htdocs/oye/
+   - SSH → rsync dist/ to server
+   - (whatever the user's host supports)
+
+3. Agent creates DNS record:
+   oye.yourdomain.com → deployment URL
+
+4. Agent verifies:
+   curl https://oye.yourdomain.com
+   → 200 OK? Dashboard loads? ✓ Setup complete.
+
+5. Agent reports:
+   "✓ Your dashboard is live at https://oye.yourdomain.com
+    It shows your connected services, projects, and dev previews.
+    From now on, say 'finish' in any project to ship it."
+```
+
+### For Other Users
+
+When someone else installs Open Your Eyes and runs the onboarding:
+- The same flow applies — their first deploy is their own dashboard
+- Their dashboard shows THEIR services, THEIR domains, THEIR projects
+- Different providers, same flow — the agent researches whatever they use
+- If `oye.theirdomain.com` loads, everything works. If not, the agent debugs.
 
 ### Bootstrap Script
 
@@ -474,7 +520,7 @@ When `~/.open-your-eyes/` doesn't exist, the agent runs the onboarding flow.
 # Creates the ~/.open-your-eyes/ structure
 
 mkdir -p ~/.open-your-eyes/providers
-mkdir -p ~/.open-your-eyes/keys  # for .p8 files, keystores, etc.
+mkdir -p ~/.open-your-eyes/keys
 
 touch ~/.open-your-eyes/secrets.env
 chmod 600 ~/.open-your-eyes/secrets.env
@@ -774,12 +820,20 @@ Timeout → Service down? Check status page. Retry later.
 
 ## Validation Gates
 
-Prove the pipeline works. Match gates to project type:
+### Gate 0: The Dashboard (first-time setup)
+
+The dashboard itself is the first validation gate. During initial setup, deploying the dashboard proves hosting + DNS + the full pipeline works. No throwaway test page needed.
+
+See **First-Time Setup** section above for the full flow.
+
+### Subsequent Gates (per-project)
+
+When shipping other projects, validate based on what the project uses:
 
 | If project has... | Test |
 |---|---|
-| Web hosting | Deploy a test page |
-| Custom domain | Point domain, confirm HTTPS |
+| Web hosting | Deploy succeeds, URL returns 200 |
+| Custom domain | Domain resolves, HTTPS works |
 | Database | Create table, write, read, clean up |
 | Payments | Create test product, clean up |
 | Email | Send test email to user |
