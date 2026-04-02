@@ -24,12 +24,14 @@ Open any project in your AI agent and say:
 
 > "open your eyes"
 
-The agent walks you through connecting your existing accounts. It asks what you already use — your hosting, your domain registrar, your DNS, your database, whatever you have. Then for each one:
+The agent asks what you already use — your hosting, your domain registrar, whatever you have. Then for each one:
 
 1. The agent **looks up the provider's current API docs** (even providers it's never heard of)
 2. Tells you **exactly what to click** — the URL, the button, the scope to select
 3. You **paste the key**
 4. The agent **validates it works** and stores it securely
+
+Then **it deploys the dashboard as your first project** — your own control panel at `oye.yourdomain.com`. If it loads, everything works. You now have a live dashboard showing your connected services, domains, and projects.
 
 That's it. You do this once. Every project on your machine can now use these credentials.
 
@@ -199,23 +201,27 @@ agent: "✓ Supabase connected (project: my-app, region: eu-central-1)"
 you:   [pastes Stripe key]
 agent: "✓ Stripe connected (test mode)"
 
-agent: "Setup complete. I can now:
+agent: "All keys validated. Now let me prove it works.
+        I'm going to deploy your Open Your Eyes dashboard
+        to oye.patrickreinbold.com — your personal control panel."
+
+       [builds the dashboard]
+       [deploys to lima-city via FTP]
+       [creates DNS record: oye.patrickreinbold.com → lima-city]
+       [waits for DNS propagation]
+
+       "✓ Dashboard is live at https://oye.patrickreinbold.com
+        It shows all your connected services, domains, and projects.
+
+        Setup complete. I can now:
         ✓ Deploy to lima-city
         ✓ Buy/manage domains via Porkbun
         ✓ Manage DNS for your domains
         ✓ Create and manage databases
         ✓ Process payments (test mode)
 
-        Want to set up a dev environment too?
-        I can deploy previews to subdomains of patrickreinbold.com."
-
-you:   "yes"
-
-agent: [sets up wildcard DNS on Cloudflare for *.patrickreinbold.com]
-       [configures lima-city FTP as dev deploy target]
-       "✓ Dev environment ready.
-        Say 'preview this' in any project to deploy to
-        projectname.patrickreinbold.com"
+        Say 'finish' in any project to ship it.
+        Say 'preview this' to deploy to a subdomain of patrickreinbold.com."
 ```
 
 ---
@@ -293,19 +299,33 @@ It never relies on training data for API specs. It always checks the current doc
 ```
 ~/.open-your-eyes/
 ├── PLAYBOOK.md          ← Agent instructions (the brain)
-├── secrets.env          ← API keys (chmod 600, never in git)
+├── secrets.env          ← API keys (chmod 600)
 ├── capabilities.yaml    ← What the agent can do
 ├── providers/           ← Per-provider metadata
 │   ├── vercel.yaml
 │   ├── lima-city.yaml
-│   ├── cloudflare.yaml
 │   └── ...
+├── dashboard/           ← Your control panel (also your first deployed project)
+├── dev-deploys.yaml     ← Active dev preview deployments
 └── keys/                ← Certificate files, keystores, .p8 files
 ```
 
 **Nothing goes in your project directories.** No config files. No dotfiles. Just your code.
 
 Credentials are global — set up Stripe once, every project can use it.
+
+## The Dashboard
+
+After initial setup, your dashboard is live at `oye.yourdomain.com`. It shows:
+
+- **Connected services** — which providers are configured, their health status
+- **Domains** — all domains across all registrars, expiry dates
+- **Deployed projects** — what's live, where, with what framework
+- **Local projects** — everything in `~/code/`, detected frameworks and deploy targets
+- **Dev previews** — active subdomain deployments with links
+- **API keys** — which keys are stored (redacted values)
+
+Run it locally too: `cd ~/.open-your-eyes/dashboard && npm run start` → `http://localhost:5173`
 
 ---
 
