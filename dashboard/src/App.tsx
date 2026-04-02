@@ -8,6 +8,8 @@ interface Provider {
   account?: string;
   status?: string;
   validated_at?: string;
+  credential_keys?: string[];
+  domains?: Array<{ name: string; id?: number }>;
 }
 
 interface Project {
@@ -88,6 +90,33 @@ function Card({
   );
 }
 
+// Map a provider's credential_keys to the secrets data to show keys under each service
+function getProviderKeys(
+  provider: Provider,
+  secrets: SecretsData
+): Array<{ key: string; redacted: string; exists: boolean }> {
+  // If the provider has explicit credential_keys, use those
+  if (provider.credential_keys && provider.credential_keys.length > 0) {
+    return provider.credential_keys.map((k) => ({
+      key: k,
+      redacted: secrets[k]?.redacted || "not set",
+      exists: secrets[k]?.exists || false,
+    }));
+  }
+  // Otherwise try to match secrets by provider name prefix
+  const prefix = provider.name.toUpperCase().replace(/[^A-Z]/g, "");
+  const matched = Object.keys(secrets).filter(
+    (k) =>
+      k.toUpperCase().startsWith(prefix) ||
+      k.toUpperCase().includes(prefix.slice(0, 4))
+  );
+  return matched.map((k) => ({
+    key: k,
+    redacted: secrets[k].redacted,
+    exists: secrets[k].exists,
+  }));
+}
+
 function App() {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -147,9 +176,32 @@ function App() {
     );
   }
 
-  const secretKeys = Object.keys(secrets);
   const deployedProjects = projects.filter((p) => p.deploy);
   const undeployedProjects = projects.filter((p) => !p.deploy);
+
+  // Extract domains from capabilities
+  const caps = capabilities?.capabilities as Record<string, Record<string, unknown>> | undefined;
+  const allDomains: Array<{
+    name: string;
+    registrar: string;
+    pointing_at?: string;
+    expires?: string;
+    auto_renew?: boolean;
+  }> = [];
+  if (caps?.domain_registration) {
+    const domains = (caps.domain_registration as Record<string, unknown>).domains as Array<Record<string, unknown>> | undefined;
+    if (domains) {
+      for (const d of domains) {
+        allDomains.push({
+          name: String(d.name || ""),
+          registrar: String((caps.domain_registration as Record<string, unknown>).provider || ""),
+          pointing_at: d.pointing_at ? String(d.pointing_at) : undefined,
+          expires: d.expires ? String(d.expires) : undefined,
+          auto_renew: d.auto_renew as boolean | undefined,
+        });
+      }
+    }
+  }
 
   return (
     <div style={rootStyle}>
@@ -167,10 +219,132 @@ function App() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
           gap: 20,
         }}
       >
+        {/* Connected Services (merged with API Keys) */}
+        <Card title="Connected Services">
+          {providers.length === 0 && !capabilities?.configured ? (
+            <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
+              No services connected yet. Tell your agent: "open your eyes"
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {providers.map((p) => {
+                const keys = getProviderKeys(p, secrets);
+                return (
+                  <div
+                    key={p.name}
+                    style={{
+                      padding: 12,
+                      background: "#12121f",
+                      borderRadius: 8,
+                      border: "1px solid #2a2a4a",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: keys.length > 0 ? 8 : 0,
+                      }}
+                    >
+                      <div>
+                        <StatusBadge ok={p.status === "ok"} />
+                        <strong style={{ fontSize: 15 }}>{p.name}</strong>
+                        <span style={{ color: "#666", marginLeft: 8, fontSize: 13 }}>
+                          {p.role}
+                        </span>
+                      </div>
+                      <span style={{ color: "#555", fontSize: 12 }}>
+                        {p.account || ""}
+                      </span>
+                    </div>
+                    {keys.length > 0 && (
+                      <div style={{ marginLeft: 16 }}>
+                        {keys.map((k) => (
+                          <div
+                            key={k.key}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              padding: "2px 0",
+                              fontSize: 12,
+                            }}
+                          >
+                            <code style={{ color: "#888" }}>{k.key}</code>
+                            <code style={{ color: k.exists ? "#555" : "#ef4444" }}>
+                              {k.redacted}
+                            </code>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {p.validated_at && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#444",
+                          marginTop: 4,
+                          marginLeft: 16,
+                        }}
+                      >
+                        Validated: {new Date(p.validated_at).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* Domains */}
+        <Card title={`Domains (${allDomains.length})`}>
+          {allDomains.length === 0 ? (
+            <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
+              No domains configured yet
+            </p>
+          ) : (
+            <table style={tableStyle}>
+              <tbody>
+                {allDomains.map((d) => (
+                  <tr key={d.name}>
+                    <td>
+                      <StatusBadge ok={true} />
+                      <strong>{d.name}</strong>
+                    </td>
+                    <td style={{ color: "#888", fontSize: 13 }}>{d.registrar}</td>
+                    <td style={{ color: "#888", fontSize: 13, textAlign: "right" }}>
+                      {d.pointing_at && (
+                        <span>
+                          &rarr; {d.pointing_at}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {allDomains
+                  .filter((d) => d.expires)
+                  .map((d) => (
+                    <tr key={d.name + "-expiry"}>
+                      <td colSpan={3} style={{ fontSize: 12, color: "#555", paddingLeft: 16 }}>
+                        Expires: {d.expires}
+                        {d.auto_renew === false && (
+                          <span style={{ color: "#f59e0b", marginLeft: 8 }}>
+                            auto-renew off
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+
         {/* System Status */}
         <Card title="System">
           <table style={tableStyle}>
@@ -181,78 +355,18 @@ function App() {
                     <StatusBadge ok={exists} />
                     <code style={{ fontSize: 13 }}>{file}</code>
                   </td>
-                  <td style={{ color: exists ? "#22c55e" : "#ef4444", textAlign: "right" }}>
+                  <td
+                    style={{
+                      color: exists ? "#22c55e" : "#ef4444",
+                      textAlign: "right",
+                    }}
+                  >
                     {exists ? "ready" : "missing"}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </Card>
-
-        {/* Connected Services */}
-        <Card title="Connected Services">
-          {providers.length === 0 && !capabilities?.configured ? (
-            <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
-              No services connected yet. Tell your agent: "open your eyes"
-            </p>
-          ) : (
-            <table style={tableStyle}>
-              <tbody>
-                {providers.map((p) => (
-                  <tr key={p.name}>
-                    <td>
-                      <StatusBadge ok={p.status === "ok"} />
-                      <strong>{p.name}</strong>
-                    </td>
-                    <td style={{ color: "#888" }}>{p.role}</td>
-                    <td style={{ color: "#888", textAlign: "right" }}>
-                      {p.account || ""}
-                    </td>
-                  </tr>
-                ))}
-                {providers.length === 0 && capabilities?.configured && (
-                  <tr>
-                    <td colSpan={3} style={{ color: "#888", fontSize: 14 }}>
-                      Capabilities configured but no provider files yet
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </Card>
-
-        {/* API Keys */}
-        <Card title={`API Keys (${secretKeys.length})`}>
-          {secretKeys.length === 0 ? (
-            <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
-              No keys stored yet
-            </p>
-          ) : (
-            <table style={tableStyle}>
-              <tbody>
-                {secretKeys.map((key) => (
-                  <tr key={key}>
-                    <td>
-                      <StatusBadge ok={secrets[key].exists} />
-                      <code style={{ fontSize: 12 }}>{key}</code>
-                    </td>
-                    <td
-                      style={{
-                        color: "#555",
-                        fontFamily: "monospace",
-                        fontSize: 12,
-                        textAlign: "right",
-                      }}
-                    >
-                      {secrets[key].redacted}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
         </Card>
 
         {/* Deployed Projects */}
@@ -283,7 +397,7 @@ function App() {
           )}
         </Card>
 
-        {/* Undeployed Projects */}
+        {/* Local Projects */}
         <Card title={`Local Projects (${undeployedProjects.length})`}>
           {undeployedProjects.length === 0 ? (
             <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
@@ -295,7 +409,9 @@ function App() {
                 {undeployedProjects.slice(0, 15).map((p) => (
                   <tr key={p.name}>
                     <td>
-                      <span style={{ color: "#555", marginRight: 8 }}>--</span>
+                      <span style={{ color: "#555", marginRight: 8 }}>
+                        --
+                      </span>
                       {p.name}
                     </td>
                     <td style={{ color: "#888", textAlign: "right" }}>
@@ -337,7 +453,13 @@ function App() {
                         {d.subdomain}
                       </a>
                     </td>
-                    <td style={{ color: "#888", textAlign: "right", fontSize: 12 }}>
+                    <td
+                      style={{
+                        color: "#888",
+                        textAlign: "right",
+                        fontSize: 12,
+                      }}
+                    >
                       {new Date(d.deployed_at).toLocaleDateString()}
                     </td>
                   </tr>
