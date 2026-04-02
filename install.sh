@@ -72,6 +72,12 @@ else
     echo "    When I say 'finish' or 'open your eyes': read ~/.open-your-eyes/PLAYBOOK.md"
 fi
 
+# Copy dashboard
+if [ -d "$SCRIPT_DIR/dashboard" ]; then
+    cp -r "$SCRIPT_DIR/dashboard" "$OYE_DIR/dashboard"
+    echo "  Installed dashboard"
+fi
+
 echo ""
 echo "Done! Open Your Eyes is installed."
 echo ""
@@ -79,6 +85,10 @@ echo "Usage: In any project, tell your AI agent:"
 echo "  \"finish\"       — ship to production"
 echo "  \"preview this\" — deploy to dev subdomain"
 echo "  \"open your eyes\" — initial setup"
+echo ""
+echo "Dashboard:"
+echo "  cd ~/.open-your-eyes/dashboard && npm install && npm run start"
+echo "  → http://localhost:5173"
 echo ""
 echo "First time? The agent will walk you through setting up your providers."
 echo "After that, it works automatically for every project."
