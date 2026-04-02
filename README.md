@@ -1,8 +1,8 @@
-# Open Your Eyes
+# Introdote
 
 **Say "finish" to your AI agent. It ships your project.**
 
-Open Your Eyes is a global agent skill that gives AI coding assistants (Claude Code, Cursor, etc.) the power to deploy, publish, and launch your projects. Set it up once — it works for every project on your machine.
+Introdote is a global agent skill that gives AI coding assistants (Claude Code, Cursor, etc.) the power to deploy, publish, and launch your projects. Set it up once — it works for every project on your machine.
 
 ---
 
@@ -11,12 +11,12 @@ Open Your Eyes is a global agent skill that gives AI coding assistants (Claude C
 ### 1. Install
 
 ```bash
-git clone https://github.com/yourusername/open-your-eyes.git /tmp/oye
+git clone https://github.com/yourusername/introdote.git /tmp/oye
 bash /tmp/oye/install.sh
 rm -rf /tmp/oye
 ```
 
-This creates `~/.open-your-eyes/` on your machine. If you use Claude Code, it auto-adds the skill trigger to `~/.claude/CLAUDE.md`.
+This creates `~/.introdote/` on your machine. If you use Claude Code, it auto-adds the skill trigger to `~/.claude/CLAUDE.md`.
 
 ### 2. Initial Setup (one time, ~15 minutes)
 
@@ -83,7 +83,7 @@ Agent:
 
 ## Dev Environment
 
-Not every deploy needs a production domain. Open Your Eyes supports a **dev setup** where projects get deployed to subdomains of a domain you own.
+Not every deploy needs a production domain. Introdote supports a **dev setup** where projects get deployed to subdomains of a domain you own.
 
 ### How it works
 
@@ -202,7 +202,7 @@ you:   [pastes Stripe key]
 agent: "✓ Stripe connected (test mode)"
 
 agent: "All keys validated. Now let me prove it works.
-        I'm going to deploy your Open Your Eyes dashboard
+        I'm going to deploy your Introdote dashboard
         to oye.patrickreinbold.com — your personal control panel."
 
        [builds the dashboard]
@@ -286,7 +286,7 @@ agent: "Deploying to experiment.patrickreinbold.com...
 
 ## How It Stays Up to Date
 
-AI agents have a known weakness: stale API knowledge. Dashboard URLs move, endpoints get deprecated, auth flows change. Open Your Eyes has a hard rule:
+AI agents have a known weakness: stale API knowledge. Dashboard URLs move, endpoints get deprecated, auth flows change. Introdote has a hard rule:
 
 > **The agent must fetch live documentation before guiding you through any service — even well-known ones like Stripe or Vercel.**
 
@@ -297,7 +297,7 @@ It never relies on training data for API specs. It always checks the current doc
 ## What's Stored Where
 
 ```
-~/.open-your-eyes/
+~/.introdote/
 ├── PLAYBOOK.md          ← Agent instructions (the brain)
 ├── secrets.env          ← API keys (chmod 600)
 ├── capabilities.yaml    ← What the agent can do
@@ -325,7 +325,7 @@ After initial setup, your dashboard is live at `oye.yourdomain.com`. It shows:
 - **Dev previews** — active subdomain deployments with links
 - **API keys** — which keys are stored (redacted values)
 
-Run it locally too: `cd ~/.open-your-eyes/dashboard && npm run start` → `http://localhost:5173`
+Run it locally too: `cd ~/.introdote/dashboard && npm run start` → `http://localhost:5173`
 
 ---
 

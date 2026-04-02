@@ -8,11 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const OYE_DIR = path.join(process.env.HOME || "~", ".open-your-eyes");
+const INTRODOTE_DIR = path.join(process.env.HOME || "~", ".introdote");
 
-// Read a file from ~/.open-your-eyes/, return null if missing
+// Read a file from ~/.introdote/, return null if missing
 function readOyeFile(filename: string): string | null {
-  const filepath = path.join(OYE_DIR, filename);
+  const filepath = path.join(INTRODOTE_DIR, filename);
   try {
     return fs.readFileSync(filepath, "utf-8");
   } catch {
@@ -44,14 +44,14 @@ function parseSecretsEnv(): Record<string, { exists: boolean; redacted: string }
 
 // GET /api/status — overall system status
 app.get("/api/status", (_req, res) => {
-  const exists = fs.existsSync(OYE_DIR);
-  const hasSecrets = fs.existsSync(path.join(OYE_DIR, "secrets.env"));
-  const hasCapabilities = fs.existsSync(path.join(OYE_DIR, "capabilities.yaml"));
-  const hasPlaybook = fs.existsSync(path.join(OYE_DIR, "PLAYBOOK.md"));
+  const exists = fs.existsSync(INTRODOTE_DIR);
+  const hasSecrets = fs.existsSync(path.join(INTRODOTE_DIR, "secrets.env"));
+  const hasCapabilities = fs.existsSync(path.join(INTRODOTE_DIR, "capabilities.yaml"));
+  const hasPlaybook = fs.existsSync(path.join(INTRODOTE_DIR, "PLAYBOOK.md"));
 
   res.json({
     installed: exists,
-    oye_dir: OYE_DIR,
+    oye_dir: INTRODOTE_DIR,
     files: {
       "secrets.env": hasSecrets,
       "capabilities.yaml": hasCapabilities,
@@ -79,7 +79,7 @@ app.get("/api/secrets", (_req, res) => {
 
 // GET /api/providers — list all provider files
 app.get("/api/providers", (_req, res) => {
-  const providersDir = path.join(OYE_DIR, "providers");
+  const providersDir = path.join(INTRODOTE_DIR, "providers");
   if (!fs.existsSync(providersDir)) return res.json([]);
 
   const files = fs.readdirSync(providersDir).filter((f) => f.endsWith(".yaml"));
@@ -179,6 +179,6 @@ app.get("/api/validation-log", (_req, res) => {
 
 const PORT = process.env.PORT || 3333;
 app.listen(PORT, () => {
-  console.log(`Open Your Eyes dashboard API → http://localhost:${PORT}`);
-  console.log(`Reading from: ${OYE_DIR}`);
+  console.log(`Introdote dashboard API → http://localhost:${PORT}`);
+  console.log(`Reading from: ${INTRODOTE_DIR}`);
 });

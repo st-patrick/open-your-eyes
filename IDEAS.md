@@ -1,4 +1,4 @@
-# Open Your Eyes — Ideas
+# Introdote — Ideas
 
 Ideas that aren't ready to implement yet but are worth keeping.
 
@@ -34,7 +34,7 @@ Benefits:
 - Could extend to use OS keychain (macOS Keychain, Linux secret-tool) instead of a flat file
 
 Implementation approach:
-- A helper script `~/.open-your-eyes/bin/oye-exec` that sources secrets.env and runs commands
+- A helper script `~/.introdote/bin/oye-exec` that sources secrets.env and runs commands
 - Agent calls `oye-exec curl -H "Authorization: Bearer $VERCEL_TOKEN" ...` instead of expanding the token
 - Validation script `oye-validate [provider]` that sources env internally and reports pass/fail
 

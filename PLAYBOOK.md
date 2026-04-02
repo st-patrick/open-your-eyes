@@ -1,4 +1,4 @@
-# Open Your Eyes
+# Introdote
 
 > A global agent skill. Set it up once in your home directory. Then in any project, say **"finish"** or **"open your eyes"** and the agent figures out how to ship it — deploy, domain, database, payments, app store, marketing — with minimal interaction from you.
 
@@ -43,7 +43,7 @@ URLs move. Endpoints get deprecated. Auth flows change.
 ## Architecture
 
 ```
-~/.open-your-eyes/                    ← GLOBAL (once per machine, shared by all projects)
+~/.introdote/                    ← GLOBAL (once per machine, shared by all projects)
 ├── secrets.env                       ← All API keys (chmod 600, never in git)
 ├── capabilities.yaml                 ← What the agent can do (deploy, email, pay, etc.)
 ├── providers/                        ← Per-provider state
@@ -55,19 +55,19 @@ URLs move. Endpoints get deprecated. Auth flows change.
 
 ~/any-project/                        ← ANY PROJECT (no config needed!)
 ├── (your code)                       ← The agent scans this
-└── (nothing from us)                 ← No .open-your-eyes/ dir in projects
+└── (nothing from us)                 ← No .introdote/ dir in projects
 ```
 
 ### Key Insight: Nothing Lives in the Project
 
-Previous versions put a playbook file in the project. That's wrong. The skill is global — it lives in the user's home directory and works across every project. The project just has code. The agent reads this playbook from `~/.open-your-eyes/PLAYBOOK.md` and applies it to whatever project it's currently in.
+Previous versions put a playbook file in the project. That's wrong. The skill is global — it lives in the user's home directory and works across every project. The project just has code. The agent reads this playbook from `~/.introdote/PLAYBOOK.md` and applies it to whatever project it's currently in.
 
 ### capabilities.yaml
 
 This is the global "what can I do?" manifest. Updated every time a new provider is set up:
 
 ```yaml
-# ~/.open-your-eyes/capabilities.yaml
+# ~/.introdote/capabilities.yaml
 # Auto-generated. Tracks what the agent can do across all projects.
 
 deploy:
@@ -143,10 +143,10 @@ app_stores:
 
 ### Provider Files
 
-Each `~/.open-your-eyes/providers/[name].yaml` stores non-secret metadata:
+Each `~/.introdote/providers/[name].yaml` stores non-secret metadata:
 
 ```yaml
-# ~/.open-your-eyes/providers/vercel.yaml
+# ~/.introdote/providers/vercel.yaml
 name: Vercel
 role: deploy
 account: your-username
@@ -258,7 +258,7 @@ Use case:           sharing, iteration, testing  launching to the world
 The agent tracks active dev deploys:
 
 ```yaml
-# ~/.open-your-eyes/dev-deploys.yaml
+# ~/.introdote/dev-deploys.yaml
 deploys:
   - project: my-cool-app
     subdomain: my-cool-app.patrickreinbold.com
@@ -311,14 +311,14 @@ When the user says **"finish"**, **"ship it"**, **"open your eyes"**, or **"depl
 ### Phase 1: Know What I Can Do (read global state)
 
 ```
-1. Read ~/.open-your-eyes/capabilities.yaml
+1. Read ~/.introdote/capabilities.yaml
    → Know what providers are configured
    → Know what the agent can do (deploy, email, payments, etc.)
 
-2. Read ~/.open-your-eyes/secrets.env
+2. Read ~/.introdote/secrets.env
    → Load all credentials
 
-3. If ~/.open-your-eyes/ doesn't exist:
+3. If ~/.introdote/ doesn't exist:
    → This is a first-time user
    → Jump to FIRST-TIME SETUP (Section below)
 ```
@@ -436,13 +436,13 @@ The agent does the work.
 
 ## First-Time Setup
 
-When `~/.open-your-eyes/` doesn't exist or has no capabilities configured, the agent runs the onboarding flow. The validation gate isn't a throwaway test page — **it's the dashboard itself**. The first thing the agent deploys is your control panel.
+When `~/.introdote/` doesn't exist or has no capabilities configured, the agent runs the onboarding flow. The validation gate isn't a throwaway test page — **it's the dashboard itself**. The first thing the agent deploys is your control panel.
 
 ### Open With
 
 > I'm going to set you up so I can deploy and ship your projects automatically. This is a one-time setup — once done, it works for every project on this machine.
 >
-> At the end, I'll deploy your Open Your Eyes dashboard as the first project. If it loads on your domain, everything works.
+> At the end, I'll deploy your Introdote dashboard as the first project. If it loads on your domain, everything works.
 >
 > Tell me about your existing setup:
 > - Where do you host websites? (Vercel, Netlify, a traditional webhost, a VPS, etc.)
@@ -457,8 +457,8 @@ When `~/.open-your-eyes/` doesn't exist or has no capabilities configured, the a
    a. Fetch the provider's current API docs
    b. Guide user to create/find credentials
    c. Validate each credential
-   d. Store in ~/.open-your-eyes/secrets.env
-   e. Create provider file in ~/.open-your-eyes/providers/
+   d. Store in ~/.introdote/secrets.env
+   e. Create provider file in ~/.introdote/providers/
 3. Build capabilities.yaml
 4. DEPLOY THE DASHBOARD as validation:
    a. Build the dashboard (npm run build)
@@ -476,7 +476,7 @@ When `~/.open-your-eyes/` doesn't exist or has no capabilities configured, the a
 The dashboard is the perfect first deploy because:
 - **It proves hosting works** — code got built and served
 - **It proves DNS works** — the subdomain resolves
-- **It proves the API pipeline works** — the dashboard reads from ~/.open-your-eyes/ and shows live data
+- **It proves the API pipeline works** — the dashboard reads from ~/.introdote/ and shows live data
 - **It's immediately useful** — the user has a control panel showing their setup
 - **It's self-referential** — the dashboard shows itself as a deployed project
 
@@ -484,7 +484,7 @@ The dashboard is the perfect first deploy because:
 FIRST DEPLOY FLOW:
 
 1. Agent builds dashboard:
-   cd ~/.open-your-eyes/dashboard && npm run build
+   cd ~/.introdote/dashboard && npm run build
 
 2. Agent deploys built files to user's host:
    - Vercel API → deploy dist/
@@ -507,7 +507,7 @@ FIRST DEPLOY FLOW:
 
 ### For Other Users
 
-When someone else installs Open Your Eyes and runs the onboarding:
+When someone else installs Introdote and runs the onboarding:
 - The same flow applies — their first deploy is their own dashboard
 - Their dashboard shows THEIR services, THEIR domains, THEIR projects
 - Different providers, same flow — the agent researches whatever they use
@@ -517,22 +517,22 @@ When someone else installs Open Your Eyes and runs the onboarding:
 
 ```bash
 #!/bin/bash
-# Creates the ~/.open-your-eyes/ structure
+# Creates the ~/.introdote/ structure
 
-mkdir -p ~/.open-your-eyes/providers
-mkdir -p ~/.open-your-eyes/keys
+mkdir -p ~/.introdote/providers
+mkdir -p ~/.introdote/keys
 
-touch ~/.open-your-eyes/secrets.env
-chmod 600 ~/.open-your-eyes/secrets.env
+touch ~/.introdote/secrets.env
+chmod 600 ~/.introdote/secrets.env
 
-touch ~/.open-your-eyes/capabilities.yaml
+touch ~/.introdote/capabilities.yaml
 
 # Global gitignore
-grep -qxF '.open-your-eyes/' ~/.gitignore_global 2>/dev/null || \
-  echo ".open-your-eyes/" >> ~/.gitignore_global
+grep -qxF '.introdote/' ~/.gitignore_global 2>/dev/null || \
+  echo ".introdote/" >> ~/.gitignore_global
 git config --global core.excludesFile ~/.gitignore_global
 
-echo "~/.open-your-eyes/ is ready."
+echo "~/.introdote/ is ready."
 ```
 
 ---
@@ -682,7 +682,7 @@ MOBILE:
 
 ```
 Check in order:
-1. ~/.open-your-eyes/secrets.env    ← global store (validate keys still work)
+1. ~/.introdote/secrets.env    ← global store (validate keys still work)
 2. .env, .env.local, .env.*         ← project-level (note which keys exist)
 3. Shell environment                ← already exported
 4. Config files                     ← supabase/config.toml, wrangler.toml, etc.
@@ -705,7 +705,7 @@ AGENT: Everything else — signing, provisioning, builds, metadata, screenshots
 Credentials needed:
   APPLE_TEAM_ID
   APPLE_API_KEY_ID + APPLE_API_ISSUER_ID + .p8 file
-  (Agent stores .p8 in ~/.open-your-eyes/keys/)
+  (Agent stores .p8 in ~/.introdote/keys/)
 ```
 
 ### Mobile (Android)
@@ -714,7 +714,7 @@ HUMAN: Log into Google Play Console ($25), approve app submission
 AGENT: Everything else — keystores, builds, listings, screenshots
 
 Credentials needed:
-  Google Play service account JSON (→ ~/.open-your-eyes/keys/)
+  Google Play service account JSON (→ ~/.introdote/keys/)
   Android keystore (agent can generate one)
 ```
 
@@ -811,14 +811,14 @@ For EVERY credential, even for well-known providers:
    → Tell the user: "I've opened the page. Here's what to do there:"
 4. TELL them exactly what to do on that page:
    → "Click 'Create Token'"
-   → "Name it 'open-your-eyes'"
+   → "Name it 'introdote'"
    → "Select 'Full Account' scope"
    → "Click 'Create'"
    → "Copy the token and paste it here"
    → Be specific about button labels, dropdown values, toggle states
 5. COLLECT: "Paste it here."
 6. VALIDATE immediately with a real API call
-7. STORE in ~/.open-your-eyes/secrets.env
+7. STORE in ~/.introdote/secrets.env
 8. UPDATE capabilities.yaml and providers/[name].yaml
 9. CONFIRM in one sentence: "✓ Connected to Vercel (account: patrick)"
 10. OPEN the next URL — don't wait, keep the flow moving
@@ -830,7 +830,7 @@ For EVERY credential, even for well-known providers:
 DON'T: "You'll need a Vercel API token. Go to vercel.com/account/tokens."
 DO:    [opens vercel.com/account/tokens in browser]
        "I've opened Vercel's token page. Click 'Create Token', name it
-        'open-your-eyes', select 'Full Account', click 'Create', and
+        'introdote', select 'Full Account', click 'Create', and
         paste the token here."
 
 DON'T: "You need to add DNS records for email verification."
@@ -859,7 +859,7 @@ Agent opens 3 browser tabs simultaneously:
   Tab 3: domain registrar's API page
 
 Agent: "I've opened 3 tabs for you:
-        1. [Provider A] — create an API key, name it 'open-your-eyes', paste here
+        1. [Provider A] — create an API key, name it 'introdote', paste here
         2. [Provider B] — create a token with DNS edit permissions, paste here
         3. [Provider C] — create an API key, paste both the key and secret here
         
@@ -936,14 +936,14 @@ Each item: agent does the work, user approves the result.
 
 ```bash
 # Clone and install globally
-git clone https://github.com/[you]/open-your-eyes.git /tmp/oye-install
+git clone https://github.com/[you]/introdote.git /tmp/oye-install
 bash /tmp/oye-install/install.sh
 rm -rf /tmp/oye-install
 
 # Or manually:
-mkdir -p ~/.open-your-eyes/providers ~/.open-your-eyes/keys
-cp PLAYBOOK.md ~/.open-your-eyes/PLAYBOOK.md
-chmod 600 ~/.open-your-eyes/secrets.env
+mkdir -p ~/.introdote/providers ~/.introdote/keys
+cp PLAYBOOK.md ~/.introdote/PLAYBOOK.md
+chmod 600 ~/.introdote/secrets.env
 ```
 
 Then in any project, tell your AI agent: **"finish"** or **"open your eyes"**.
@@ -953,10 +953,10 @@ Then in any project, tell your AI agent: **"finish"** or **"open your eyes"**.
 Add to your `~/.claude/CLAUDE.md`:
 
 ```markdown
-## Open Your Eyes
+## Introdote
 
 When I say "finish", "ship it", "deploy", or "open your eyes":
-1. Read ~/.open-your-eyes/PLAYBOOK.md
+1. Read ~/.introdote/PLAYBOOK.md
 2. Follow its instructions to scan this project and ship it
 ```
 
@@ -968,7 +968,7 @@ Or create it as a slash command / skill for even tighter integration.
 
 ```
 WHAT IT IS:
-  A global agent skill that lives in ~/.open-your-eyes/
+  A global agent skill that lives in ~/.introdote/
   Works across every project on your machine
   Set up once — never fill out the same questionnaire twice
 

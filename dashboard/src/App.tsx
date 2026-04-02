@@ -170,7 +170,7 @@ function App() {
   if (error) {
     return (
       <div style={rootStyle}>
-        <h1 style={{ fontSize: 24, margin: "0 0 16px 0" }}>Open Your Eyes</h1>
+        <h1 style={{ fontSize: 24, margin: "0 0 16px 0" }}>Introdote</h1>
         <div
           style={{
             background: "#2a1a1a",
@@ -224,7 +224,7 @@ function App() {
     <div style={rootStyle}>
       <header style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 28, margin: "0 0 4px 0", fontWeight: 700 }}>
-          Open Your Eyes
+          Introdote
         </h1>
         <p style={{ margin: 0, color: "#888", fontSize: 14 }}>
           {status.installed
@@ -496,7 +496,7 @@ function App() {
           fontSize: 12,
         }}
       >
-        Open Your Eyes — say "finish" to ship, "preview this" for dev
+        Introdote — say "finish" to ship, "preview this" for dev
       </footer>
     </div>
   );

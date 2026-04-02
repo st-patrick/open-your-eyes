@@ -1,4 +1,4 @@
-# Open Your Eyes — Recommended Defaults
+# Introdote — Recommended Defaults
 
 > For users who don't have existing providers or don't have a preference. These are the agent's go-to recommendations when the user says "just pick something for me."
 

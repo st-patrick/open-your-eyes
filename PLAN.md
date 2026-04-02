@@ -1,10 +1,10 @@
-# Open Your Eyes — Plan
+# Introdote — Plan
 
 ## Vision
 
 A local-first alternative to Lovable. Three layers:
 
-1. **The Playbook** — a global agent skill in `~/.open-your-eyes/`. Say "finish" in any project, the agent ships it. Say "preview this", it deploys to a dev subdomain. Provider-agnostic, always fetches live API docs.
+1. **The Playbook** — a global agent skill in `~/.introdote/`. Say "finish" in any project, the agent ships it. Say "preview this", it deploys to a dev subdomain. Provider-agnostic, always fetches live API docs.
 
 2. **The Dashboard** — a local web app that shows your domains, projects, connected services, and dev previews at a glance. The control panel for everything the playbook manages.
 
@@ -13,7 +13,7 @@ A local-first alternative to Lovable. Three layers:
 ## Architecture
 
 ```
-~/.open-your-eyes/
+~/.introdote/
 ├── PLAYBOOK.md           ← Agent brain (skill instructions)
 ├── secrets.env           ← All API keys (chmod 600)
 ├── capabilities.yaml     ← What the agent can do
@@ -28,7 +28,7 @@ A local-first alternative to Lovable. Three layers:
 
 ## The Dashboard
 
-A local web app (Next.js or plain HTML+JS) that reads `~/.open-your-eyes/` and calls provider APIs to show live state.
+A local web app (Next.js or plain HTML+JS) that reads `~/.introdote/` and calls provider APIs to show live state.
 
 ### Views
 
@@ -82,9 +82,9 @@ A local web app (Next.js or plain HTML+JS) that reads `~/.open-your-eyes/` and c
 ### Data Source
 
 The dashboard reads from:
-- `~/.open-your-eyes/capabilities.yaml` — what's connected
-- `~/.open-your-eyes/providers/*.yaml` — provider details
-- `~/.open-your-eyes/dev-deploys.yaml` — active previews
+- `~/.introdote/capabilities.yaml` — what's connected
+- `~/.introdote/providers/*.yaml` — provider details
+- `~/.introdote/dev-deploys.yaml` — active previews
 - **Live API calls** to providers for real-time status (Vercel projects, domain expiry, etc.)
 
 ### Implementation
@@ -112,7 +112,7 @@ The dashboard reads from:
 
 ## What's Next
 
-- [ ] Dashboard scaffold (local web app reading ~/.open-your-eyes/)
+- [ ] Dashboard scaffold (local web app reading ~/.introdote/)
 - [ ] First real setup: Patrick's stack (Vercel, lima-city, patrickreinbold.com dev domain)
 - [ ] Dev environment: wildcard DNS on patrickreinbold.com, FTP deploy to lima-city
 - [ ] Provider research: lima-city REST API for DNS + FTP deploy

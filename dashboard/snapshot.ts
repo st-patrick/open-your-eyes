@@ -1,11 +1,11 @@
-// Snapshots the current ~/.open-your-eyes/ state into a static JSON file
+// Snapshots the current ~/.introdote/ state into a static JSON file
 // so the deployed dashboard can show real data without a backend.
 
 import fs from "fs";
 import path from "path";
 import { parse as parseYaml } from "yaml";
 
-const OYE_DIR = path.join(process.env.HOME || "~", ".open-your-eyes");
+const INTRODOTE_DIR = path.join(process.env.HOME || "~", ".introdote");
 
 function readFile(filepath: string): string | null {
   try {
@@ -16,7 +16,7 @@ function readFile(filepath: string): string | null {
 }
 
 function parseSecretsEnv(): Record<string, { exists: boolean; redacted: string }> {
-  const content = readFile(path.join(OYE_DIR, "secrets.env"));
+  const content = readFile(path.join(INTRODOTE_DIR, "secrets.env"));
   if (!content) return {};
   const result: Record<string, { exists: boolean; redacted: string }> = {};
   for (const line of content.split("\n")) {
@@ -37,16 +37,16 @@ function parseSecretsEnv(): Record<string, { exists: boolean; redacted: string }
 // Build snapshot
 const snapshot = {
   status: {
-    installed: fs.existsSync(OYE_DIR),
-    oye_dir: OYE_DIR,
+    installed: fs.existsSync(INTRODOTE_DIR),
+    oye_dir: INTRODOTE_DIR,
     files: {
-      "secrets.env": fs.existsSync(path.join(OYE_DIR, "secrets.env")),
-      "capabilities.yaml": fs.existsSync(path.join(OYE_DIR, "capabilities.yaml")),
-      "PLAYBOOK.md": fs.existsSync(path.join(OYE_DIR, "PLAYBOOK.md")),
+      "secrets.env": fs.existsSync(path.join(INTRODOTE_DIR, "secrets.env")),
+      "capabilities.yaml": fs.existsSync(path.join(INTRODOTE_DIR, "capabilities.yaml")),
+      "PLAYBOOK.md": fs.existsSync(path.join(INTRODOTE_DIR, "PLAYBOOK.md")),
     },
   },
   providers: (() => {
-    const dir = path.join(OYE_DIR, "providers");
+    const dir = path.join(INTRODOTE_DIR, "providers");
     if (!fs.existsSync(dir)) return [];
     return fs.readdirSync(dir)
       .filter((f) => f.endsWith(".yaml"))
@@ -60,7 +60,7 @@ const snapshot = {
   })(),
   secrets: parseSecretsEnv(),
   capabilities: (() => {
-    const content = readFile(path.join(OYE_DIR, "capabilities.yaml"));
+    const content = readFile(path.join(INTRODOTE_DIR, "capabilities.yaml"));
     if (!content) return { configured: false, capabilities: {} };
     try {
       return { configured: true, capabilities: parseYaml(content) || {} };
@@ -69,7 +69,7 @@ const snapshot = {
     }
   })(),
   devDeploys: (() => {
-    const content = readFile(path.join(OYE_DIR, "dev-deploys.yaml"));
+    const content = readFile(path.join(INTRODOTE_DIR, "dev-deploys.yaml"));
     if (!content) return { deploys: [] };
     try {
       return parseYaml(content) || { deploys: [] };
