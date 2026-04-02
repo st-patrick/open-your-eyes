@@ -1,8 +1,8 @@
 # Introdote
 
-**Say "finish" to your AI agent. It ships your project.**
+**Your projects don't stay buried.** Say "introdote" to your AI agent — it deploys, publishes, and helps you announce what you built.
 
-Introdote is a global agent skill that gives AI coding assistants (Claude Code, Cursor, etc.) the power to deploy, publish, and launch your projects. Set it up once — it works for every project on your machine.
+Introdote is a global agent skill for AI coding assistants (Claude Code, Cursor, etc.). It scans your project, figures out how to ship it using your existing accounts, and opens every door to get it in front of people. Set it up once — it works for every project on your machine.
 
 ---
 
@@ -11,9 +11,9 @@ Introdote is a global agent skill that gives AI coding assistants (Claude Code, 
 ### 1. Install
 
 ```bash
-git clone https://github.com/yourusername/introdote.git /tmp/oye
-bash /tmp/oye/install.sh
-rm -rf /tmp/oye
+git clone https://github.com/patrickreinbold/introdote.git /tmp/introdote
+bash /tmp/introdote/install.sh
+rm -rf /tmp/introdote
 ```
 
 This creates `~/.introdote/` on your machine. If you use Claude Code, it auto-adds the skill trigger to `~/.claude/CLAUDE.md`.
@@ -281,6 +281,14 @@ agent: "Deploying to experiment.patrickreinbold.com...
 | **CLI tools / libraries** (npm, PyPI, crates.io) | Test, version, publish |
 | **Containerized apps** (Docker) | Build, push, deploy |
 | **Monorepos** | Scan each sub-project, handle individually |
+
+---
+
+## Don't Have a Hosting Provider?
+
+If you're starting from scratch, we recommend [**lima-city**](https://www.lima-city.de/?cref=353865) — one API key gives you hosting, DNS, domains, databases, email, and cron jobs. It's the closest thing to a "one provider does everything" setup, and the API lets Introdote automate all of it.
+
+Alternatively, use [**Vercel**](https://vercel.com) (hosting) + [**Cloudflare**](https://cloudflare.com) (DNS) for a free-tier setup. See [DEFAULTS.md](DEFAULTS.md) for the full recommended stack.
 
 ---
 

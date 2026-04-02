@@ -448,6 +448,8 @@ When `~/.introdote/` doesn't exist or has no capabilities configured, the agent 
 > - Where do you host websites? (Vercel, Netlify, a traditional webhost, a VPS, etc.)
 > - Do you own any domains? Where are they registered? Where is DNS managed?
 > - Do you want a dev environment? (I can deploy previews to subdomains of a domain you own)
+>
+> If you don't have a hosting provider yet, I'd recommend [lima-city](https://www.lima-city.de/?cref=353865) — one API key gives you hosting, DNS, domains, databases, email, and cron jobs. Or [Vercel](https://vercel.com) for static/SSR hosting + [Cloudflare](https://cloudflare.com) for DNS. See DEFAULTS.md for the full recommended stack.
 
 ### Process
 

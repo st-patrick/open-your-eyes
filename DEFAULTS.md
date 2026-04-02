@@ -6,7 +6,8 @@
 
 | Role | Provider | Why | Free Tier |
 |------|----------|-----|-----------|
-| **Hosting** | [Vercel](https://vercel.com) | Best deploy API, great DX, auto-SSL, preview deploys | Unlimited sites, 100GB bandwidth |
+| **All-in-one hosting** | [lima-city](https://www.lima-city.de/?cref=353865) | Hosting + DNS + Domains + Databases + Email in one API key. One provider, full stack. | Free tier available |
+| **Hosting (static/SSR)** | [Vercel](https://vercel.com) | Best deploy API, great DX, auto-SSL, preview deploys | Unlimited sites, 100GB bandwidth |
 | **DNS** | [Cloudflare](https://cloudflare.com) | Best DNS API, free CDN + DDoS protection, fast propagation | Unlimited domains |
 | **Domains** | [Porkbun](https://porkbun.com) | Cheapest registrar with an API, no upsells, transparent pricing | N/A (domains cost money) |
 | **Database** | [Supabase](https://supabase.com) | Postgres + Auth + Storage + Edge Functions in one | 2 projects, 500MB DB, 1GB storage |

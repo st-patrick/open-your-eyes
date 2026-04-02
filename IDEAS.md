@@ -122,3 +122,28 @@ The core insight: a full-access webhost API key (like lima-city) + an Anthropic 
 - The agent playbook (PLAYBOOK.md) means any AI agent can drive it, not just one company's product
 
 ---
+
+## Fun Ideas
+
+**"Introdote roulette"**
+Say "introdote roulette" — the agent picks a random undeployed project from ~/code/, scans it, deploys it, and opens announcement channels. Forces you to ship things you forgot about.
+
+**Ship streak**
+Track how many consecutive days you've shipped something. Dashboard shows a streak counter. Miss a day, it resets. Gamify publishing.
+
+**Portfolio generator**
+Say "introdote portfolio" — the agent scans ALL projects in ~/code/, generates a portfolio page with screenshots and descriptions, deploys it to portfolio.yourdomain.com. Instant developer portfolio from your existing work.
+
+**Weekly digest**
+The agent sends you a weekly email (via your configured email provider): "You shipped 3 projects this week. 47 are still undeployed. Here are 3 that look ready to ship: [...]"
+
+**"Introdote this for me"**
+A friend sends you their project. You clone it, say "introdote" and it deploys to a subdomain of YOUR domain. You can preview other people's work on your own infrastructure instantly.
+
+**Launch party mode**
+Say "introdote launch party" — the agent deploys AND opens 5+ announcement channels simultaneously: Reddit post template, HN submission, tweet draft, LinkedIn post, Product Hunt draft. Maximum exposure in one command.
+
+**Graveyard rescue**
+Say "introdote graveyard" — the agent lists all projects that were once deployed but are now dead (domain expired, hosting down, etc.) and offers to resurrect them.
+
+---
