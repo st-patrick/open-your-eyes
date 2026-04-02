@@ -71,3 +71,54 @@ This extends the prime directive: **human approves, agent does everything else**
 Could also integrate with social media APIs (Twitter/X API, Reddit API) to post directly with human approval, but opening tabs with templates is the zero-dependency version.
 
 ---
+
+## Full In-Browser Lovable (2 API keys = complete platform)
+
+The core insight: a full-access webhost API key (like lima-city) + an Anthropic API key = your own Lovable running entirely in the browser.
+
+**What the webhost API key provides:**
+- Deploy (FTP upload to directories)
+- Subdomains (create vhost → directory mappings)
+- DNS (CRUD records for any domain)
+- Databases (create/manage MySQL)
+- Email (mailboxes, aliases, forwarding)
+- Cron jobs
+- SSL (automatic)
+
+**What the Anthropic API key adds:**
+- Code generation from natural language prompts
+- The "brain" that turns "build me X" into actual files
+
+**The dashboard becomes:**
+1. User types: "Build me a landing page for my photography portfolio"
+2. Dashboard calls Claude API → generates HTML/CSS/JS
+3. Dashboard calls webhost FTP API → uploads files to a directory
+4. Dashboard calls webhost vhost API → creates photos.yourdomain.com
+5. Dashboard calls DNS API → points subdomain at hosting
+6. Site is live in seconds
+7. User sees it in a preview iframe
+8. "Edit" button → back to prompting, iterative refinement
+9. "Share" button → announcement flow (Reddit, HN, Twitter templates)
+
+**Architecture:**
+- Frontend: React dashboard (already built)
+- Backend: just API calls — no server needed, everything runs client-side
+  - Anthropic API: called directly from browser (user's own key)
+  - Webhost API: called directly from browser (user's own key)
+  - No intermediate server, no data leaves the browser except to those two APIs
+
+**What this means for others:**
+- Anyone with a webhost that has an API (lima-city, Hetzner, etc.) can run this
+- For users without a webhost API, use the DEFAULTS.md stack (Vercel + Cloudflare)
+- The Anthropic key is the only "subscription" — pay per use, no platform fee
+- Unlike Lovable: no vendor lock-in, your own domains, your own hosting, your own data
+
+**Why this beats Lovable:**
+- No monthly subscription — just API usage costs
+- Your own domains, not lovable.app subdomains
+- Your own hosting, not locked to their infrastructure
+- Full control over databases, email, DNS
+- Can use any webhost, not just one platform
+- The agent playbook (PLAYBOOK.md) means any AI agent can drive it, not just one company's product
+
+---
