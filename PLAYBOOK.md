@@ -1,37 +1,95 @@
 # Open Your Eyes — Agent Playbook
 
-> **What is this?** Drop this file into any project. An AI agent will scan the codebase, figure out what services it depends on, determine what credentials are missing, and walk you through collecting only what's needed. Works for web apps, mobile apps, APIs, monorepos — whatever it finds.
+> Drop this file into any project. An AI agent will scan the codebase, figure out every service it needs to go live, and walk you through the absolute minimum you need to do: approve, log in, and pay. Everything else — the research, the wiring, the configuration, the deployment — is the agent's job.
 
 ---
 
-## 0. Philosophy
+## PRIME DIRECTIVE
 
-1. **Read the project first, ask questions second.** The codebase already tells you 80% of what's needed. Don't ask the user "do you use Stripe?" when there's a `@stripe/stripe-js` in package.json.
+```
+THE HUMAN DOES THREE THINGS:
+  1. APPROVE  — confirm what the agent is about to do
+  2. LOG IN   — authenticate on dashboards the agent can't access
+  3. PAY      — enter payment details where required
 
-2. **Provider-agnostic.** Don't prescribe providers. Discover what the project already uses. If it imports `firebase`, don't suggest Supabase. If the deploy config says Netlify, don't push Vercel.
+EVERYTHING ELSE IS THE AGENT'S JOB.
 
-3. **Only collect what's missing.** If `~/.open-your-eyes/secrets.env` already has a valid `STRIPE_SECRET_KEY`, don't ask for it again. Validate what exists, collect what doesn't.
+The agent figures out what's needed. The agent researches the APIs.
+The agent writes the config. The agent deploys. The agent validates.
+The agent troubleshoots. The human just says "yes" and pastes keys.
+```
 
-4. **Adapt to project type.** A static site needs hosting + DNS. A SaaS app needs that plus database, auth, payments, email. A mobile app needs app store credentials. A CLI tool might need nothing. Let the project tell you.
+This means:
+- Don't ask the user "what framework should we use?" — read the code.
+- Don't ask "do you need a database?" — check the dependencies.
+- Don't explain what an API key is — just say "go to this URL, click this button, paste what you see."
+- Don't give the user homework — if something can be done via API, the agent does it.
+- Minimize questions. Maximize automation. Every question you ask the user is a failure to figure it out yourself.
+
+---
+
+## RULE: NEVER TRUST YOUR TRAINING DATA FOR API SPECS
+
+```
+YOUR KNOWLEDGE OF APIs IS STALE. ALWAYS LOOK UP THE LATEST DOCS.
+
+Before guiding a user through ANY service's credential setup:
+  1. Fetch the provider's current API documentation
+  2. Fetch their current "getting started" or "authentication" page
+  3. Verify that the URLs, dashboard paths, and steps you're about to
+     give are CURRENT — not what you remember from training
+
+Before writing ANY validation call:
+  1. Look up the current API endpoint and auth format
+  2. Check for recent API version changes (v1 → v2, REST → GraphQL, etc.)
+  3. Verify the response format hasn't changed
+
+DO NOT wing it. DO NOT rely on memory. FETCH THE DOCS EVERY TIME.
+```
+
+Why this matters:
+- Stripe moved their API keys page. Your training data has the old URL.
+- Supabase changed their Management API auth flow. Your training data has the old one.
+- Vercel deprecated an endpoint. Your validation script returns 404.
+- A provider you've never heard of (lima-city, Uberspace, All-Inkl) has perfectly good APIs — but only if you actually go read their docs.
+
+### How to Research a Provider
+
+```
+For EVERY provider, even ones you think you know:
+
+1. SEARCH: "[provider] API documentation [current year]"
+2. FETCH: Read their official docs — specifically:
+   a. Authentication page (how to create tokens/keys)
+   b. API reference (endpoints, auth headers, response format)
+   c. Rate limits and free tier restrictions
+   d. Changelog or migration guide (what changed recently?)
+3. VERIFY: Cross-check at least 2 sources when possible
+   (official docs + developer blog/changelog)
+4. BUILD: Construct the guide from LIVE information, not memory
+
+If you can't access the docs (blocked, down, paywalled):
+  → Tell the user: "I can't access [provider]'s docs right now.
+    Can you check [URL] and tell me how to create an API key?"
+  → Even then, don't guess — ask the user to describe what they see.
+```
 
 ---
 
 ## 1. Project Scan
 
-When this playbook is present in a project, the agent should **automatically scan the codebase** before asking any questions. Here's how.
+When this playbook is present in a project, the agent scans the codebase **automatically** before saying a word to the user.
 
 ### Step 1: Detect Project Type
 
-Scan for these markers to classify the project:
+Scan for these markers:
 
 ```
-PROJECT TYPE DETECTION:
-
 Web App (SPA/SSR):
   → package.json with react, vue, svelte, angular, next, nuxt, sveltekit, astro
   → vite.config.*, next.config.*, nuxt.config.*
 
-Static Site / Marketing:
+Static Site:
   → index.html at root, no framework deps
   → hugo.toml, _config.yml (Jekyll), mkdocs.yml
 
@@ -55,24 +113,20 @@ Desktop App:
   → Package.swift with .macOS platform
 
 API / Backend:
-  → main.go, cmd/ directory (Go)
-  → manage.py, wsgi.py (Django/Python)
-  → Gemfile with rails (Ruby)
-  → server.ts, server.js at root with express/fastify/hono
+  → main.go, cmd/ (Go) | manage.py, wsgi.py (Django)
+  → Gemfile with rails | server.ts/server.js with express/fastify/hono
   → Cargo.toml (Rust)
 
 Monorepo:
   → pnpm-workspace.yaml, lerna.json, nx.json, turbo.json
-  → apps/ or packages/ directories
-  → (scan each sub-project recursively)
+  → apps/ or packages/ (scan each sub-project recursively)
 
 Containerized:
   → Dockerfile, docker-compose.yml, compose.yaml
 
 Serverless:
-  → serverless.yml, sam-template.yaml, netlify/functions/, vercel.json with functions
-  → supabase/functions/ (Supabase Edge Functions)
-  → wrangler.toml (Cloudflare Workers)
+  → serverless.yml, sam-template.yaml, wrangler.toml
+  → supabase/functions/, netlify/functions/, vercel.json with functions
 ```
 
 ### Step 2: Detect Services & Dependencies
@@ -80,15 +134,13 @@ Serverless:
 Scan dependency files and source code for service integrations:
 
 ```
-DEPENDENCY → SERVICE MAPPING:
-
-Package managers (scan these files):
+Package managers to scan:
   → package.json, requirements.txt, Pipfile, Gemfile, go.mod,
     Cargo.toml, pubspec.yaml, Podfile, build.gradle, *.csproj
 
-Source code patterns (grep for these):
-  → import statements, require() calls, SDK initializations,
-    environment variable references (process.env.*, os.environ, etc.)
+Source code patterns:
+  → import/require statements, SDK initializations,
+    env var references (process.env.*, os.environ, etc.)
 
 ---
 
@@ -150,7 +202,7 @@ EMAIL:
 
 STORAGE / FILE UPLOADS:
   @supabase/storage-js                           → Supabase Storage
-  @aws-sdk/client-s3, aws-sdk (S3)              → AWS S3 (or compatible: R2, MinIO, etc.)
+  @aws-sdk/client-s3, aws-sdk (S3)              → AWS S3 (or compatible: R2, MinIO)
   @google-cloud/storage                          → Google Cloud Storage
   @azure/storage-blob                            → Azure Blob Storage
   firebase/storage                               → Firebase Storage
@@ -203,7 +255,7 @@ CI/CD:
   bitbucket-pipelines.yml                        → Bitbucket Pipelines
 
 MOBILE-SPECIFIC:
-  *.xcodeproj + exportOptions.plist              → Apple Developer (signing, provisioning)
+  *.xcodeproj + exportOptions.plist              → Apple Developer (signing)
   google-services.json                           → Firebase (Android)
   GoogleService-Info.plist                       → Firebase (iOS)
   fastlane/                                      → Fastlane (needs store credentials)
@@ -213,10 +265,8 @@ MOBILE-SPECIFIC:
 
 ### Step 3: Detect Existing Configuration
 
-Check for credentials that already exist:
-
 ```
-CHECK THESE LOCATIONS (in order):
+Check in this order:
 
 1. ~/.open-your-eyes/secrets.env          ← our credential store
 2. .env, .env.local, .env.development     ← project-level env files
@@ -229,14 +279,16 @@ DO NOT read or log actual values from .env files — just note which keys exist.
 For ~/.open-your-eyes/secrets.env, validate that stored keys still work.
 ```
 
-### Step 4: Build the Requirements Matrix
+### Step 4: Scan for Unreferenced Env Vars
 
-Combine everything into a clear picture:
+Grep source code for `process.env.SOMETHING`, `os.environ["SOMETHING"]`, `env("SOMETHING")`, `import.meta.env.SOMETHING`, etc. Cross-reference with what exists. Any env var referenced in code but undefined anywhere is a credential gap.
+
+### Step 5: Build the Requirements Matrix
 
 ```
 EXAMPLE OUTPUT:
 
-Project Type: Next.js web app (App Router) with Supabase + Stripe
+Project Type: Next.js web app with Supabase + Stripe
 Deploy Target: Vercel (vercel.json found)
 
 ┌─────────────┬──────────────┬─────────────────┬──────────────┐
@@ -252,97 +304,123 @@ Deploy Target: Vercel (vercel.json found)
 │ Errors      │ —            │ not detected    │ — SKIP       │
 └─────────────┴──────────────┴─────────────────┴──────────────┘
 
-ACTION NEEDED:
-1. Collect: Vercel API token
-2. Ask: Where is your DNS managed? Collect DNS credentials
-3. Collect: Stripe secret key + publishable key
-4. Collect: Resend API key
+ACTIONS (in order — minimize human interruptions):
+ 1. [AGENT]  Validate existing Supabase + PostHog keys still work
+ 2. [HUMAN]  Paste Vercel API token (I'll show you exactly where to get it)
+ 3. [HUMAN]  Tell me where DNS is managed for your domain
+ 4. [HUMAN]  Paste Stripe keys (I'll show you exactly where)
+ 5. [HUMAN]  Paste Resend API key (I'll show you exactly where)
+ 6. [AGENT]  Validate all new keys
+ 7. [AGENT]  Run end-to-end deploy test
 ```
 
 ---
 
 ## 2. The Conversation
 
-After the scan, the agent presents findings and fills gaps.
+### Present the Scan — Don't Interrogate
 
-### Open With Scan Results
+Show the matrix. Be direct about what you need:
 
-> I've scanned your project. Here's what I found:
+> I've scanned your project. It's a Next.js app using Supabase, Stripe, and Resend.
 >
-> [show the requirements matrix from Step 4]
+> Supabase and PostHog keys are already configured — I'm validating them now.
 >
-> I need to collect credentials for [N] services. For the ones I detected automatically, I'll just need API keys. I also have a couple questions about things I couldn't determine from the code.
+> I need 3 things from you:
+> 1. A Vercel API token — go to [URL], I'll tell you exactly what to click
+> 2. Your Stripe keys — go to [URL]
+> 3. A Resend API key — go to [URL]
+>
+> Also: where do you manage DNS for your domain? (I need this to point your domain at the deployment.)
 
-### For Each Missing Credential
+### Batch Human Actions
 
-Follow the protocol from the previous version:
+Don't make the user do one thing at a time. Give them all the URLs upfront:
 
-1. **If provider is known** (detected from code): research that provider's API, guide user to exact credentials page, validate, store
-2. **If provider is unknown** (role needed but not clear which provider): ask the user what they use, then research
-3. **If role isn't needed**: skip entirely — don't collect credentials for services the project doesn't use
+> While I validate your existing keys, you can get the new ones in parallel. Open these 3 tabs:
+> 1. [Vercel tokens page — LIVE URL fetched from docs]
+> 2. [Stripe API keys page — LIVE URL fetched from docs]
+> 3. [Resend API keys page — LIVE URL fetched from docs]
+>
+> For each one: create a new key, copy it, paste it back here. I'll validate each one as you give it to me.
+
+### For Each Credential the User Needs to Create
+
+The agent should:
+
+1. **Fetch the provider's current docs** (RULE: never trust training data)
+2. **Give the exact current URL** to the credentials page
+3. **Give the minimum steps**: "click X, name it Y, select Z scope, copy the result"
+4. **Explain what it grants** in one sentence: "This lets me deploy code to your Vercel account"
+5. **Collect it**: "Paste it here"
+6. **Validate immediately**: make a real API call, report success or diagnose failure
+7. **Store it**: write to `~/.open-your-eyes/secrets.env`
+
+What the agent does NOT do:
+- Explain what an API is
+- Give a history of the provider
+- List features the user didn't ask about
+- Offer alternatives when the provider is already chosen by the code
 
 ### Questions Only for What Code Can't Tell You
 
-These are things that typically aren't in source code:
+- **DNS provider** — "Where do you manage DNS for `yourdomain.com`?"
+- **Existing accounts** — "Do you already have a [detected provider] account, or should I walk you through creating one?"
+- **Which account** — if multiple projects/orgs are possible: "Which Supabase project is this app connected to?"
 
-- **DNS provider** — "Your domain is referenced in the code but I can't tell where DNS is managed. Where do you manage DNS for `yourdomain.com`?"
-- **Domain registrar** — only matters if the user wants the agent to buy new domains
-- **Deploy credentials** — even if the deploy target is detected, the API key isn't in code
-- **Existing accounts** — "I see your project uses Supabase but there are no credentials configured. Do you already have a Supabase project for this, or should we create one?"
+### When the User Names a Provider You Don't Know
+
+This will happen. The user says "I use lima-city" or "my hosting is at All-Inkl" or "we use Mollie for payments." Your training data probably has nothing useful.
+
+```
+1. DO NOT pretend you know their API
+2. DO search for their docs RIGHT NOW
+3. DO read their API/developer documentation
+4. DO figure out: auth method, key creation URL, validation endpoint
+5. DO build a step-by-step guide from LIVE docs
+6. If the provider has no API: say so, discuss workarounds (SSH, FTP, polyfill)
+```
 
 ---
 
 ## 3. Platform-Specific Requirements
 
-The scan may detect platform-specific needs beyond standard web services.
-
 ### Mobile Apps (iOS)
 
-If `*.xcodeproj` or `ios/` is detected:
+If `*.xcodeproj` or `ios/` detected:
 
 ```
 REQUIRED:
 ├── Apple Developer Account ($99/year)
 │   ├── Team ID
 │   ├── App Store Connect API Key (.p8 file + Key ID + Issuer ID)
-│   │   → App Store Connect → Users and Access → Integrations → App Store Connect API
 │   ├── Signing Certificate (distribution)
 │   └── Provisioning Profile
 │
 ├── If using Fastlane:
-│   ├── MATCH_PASSWORD (for cert encryption)
-│   ├── MATCH_GIT_URL (for cert storage repo)
+│   ├── MATCH_PASSWORD (cert encryption)
+│   ├── MATCH_GIT_URL (cert storage repo)
 │   └── APP_STORE_CONNECT_API_KEY_PATH
 │
 ├── If using Expo EAS:
 │   ├── EXPO_TOKEN
-│   └── Apple credentials (EAS can manage these interactively)
+│   └── Apple credentials (EAS manages interactively)
 │
 └── If push notifications:
-    └── APNs key (.p8) — often same as App Store Connect API key
-```
+    └── APNs key (.p8) — often same as App Store Connect key
 
-Agent guide:
-> Your project has an iOS target. To deploy to the App Store, I'll need access to your Apple Developer account. Here's what we need:
->
-> 1. **App Store Connect API Key** — this lets me submit builds and manage app metadata
->    - Go to [App Store Connect](https://appstoreconnect.apple.com/) → Users and Access → Integrations → App Store Connect API
->    - Click "Generate API Key"
->    - Role: "App Manager" (or "Admin" for full access)
->    - Download the `.p8` file — **it can only be downloaded once**
->    - Note the **Key ID** and **Issuer ID** shown on the page
+AGENT DOES: Generate provisioning profiles, manage signing, submit builds
+HUMAN DOES: Log into Apple Developer portal, approve account creation, pay $99/year
+```
 
 ### Mobile Apps (Android)
 
-If `android/` or `build.gradle` is detected:
+If `android/` or `build.gradle` detected:
 
 ```
 REQUIRED:
 ├── Google Play Console ($25 one-time)
 │   ├── Service Account JSON key
-│   │   → Google Cloud Console → IAM → Service Accounts
-│   │   → Grant "Service Account User" role
-│   │   → Google Play Console → Setup → API access → link the service account
 │   └── Upload Keystore (.jks or .keystore)
 │       ├── ANDROID_KEYSTORE_PATH
 │       ├── ANDROID_KEYSTORE_PASSWORD
@@ -354,162 +432,185 @@ REQUIRED:
 │
 └── If using Expo EAS:
     └── EXPO_TOKEN + Google Service Account JSON
+
+AGENT DOES: Generate keystores, configure signing, submit builds, manage listings
+HUMAN DOES: Log into Google Play Console, approve developer registration, pay $25
 ```
 
-### Desktop Apps (Electron)
-
-If `electron-builder.yml` or `electron` dep detected:
+### Desktop Apps (Electron / Tauri)
 
 ```
 REQUIRED:
 ├── Code Signing:
-│   ├── macOS: Apple Developer ID certificate
-│   │   ├── CSC_LINK (base64 .p12 certificate)
-│   │   ├── CSC_KEY_PASSWORD
-│   │   └── APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD (for notarization)
+│   ├── macOS: Apple Developer ID cert + notarization credentials
 │   ├── Windows: Code signing certificate (.pfx)
-│   │   ├── WIN_CSC_LINK
-│   │   └── WIN_CSC_KEY_PASSWORD
 │   └── Linux: GPG key (optional)
 │
 ├── Auto-Update:
-│   └── GitHub token (for releases) or S3 bucket credentials
+│   └── GitHub token (for releases) or S3 bucket
 │
 └── Distribution:
-    ├── Mac App Store: Apple Developer account (same as iOS)
-    ├── Microsoft Store: Microsoft Partner Center account
-    └── Snap Store: snapcraft login token
+    ├── Mac App Store → Apple Developer account
+    ├── Microsoft Store → Microsoft Partner Center
+    └── Snap Store → snapcraft token
+
+AGENT DOES: Configure signing, build installers, publish releases, set up auto-update
+HUMAN DOES: Purchase certificates, log into store accounts
 ```
 
-### Desktop Apps (Tauri)
-
-If `tauri.conf.json` detected:
-
-```
-REQUIRED:
-├── Code Signing (same as Electron, platform-dependent)
-├── TAURI_SIGNING_PRIVATE_KEY (for auto-updater)
-├── TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-└── GitHub token (if using GitHub releases for distribution)
-```
-
-### Chrome Extensions / Browser Add-ons
+### Browser Extensions
 
 If `manifest.json` with `"manifest_version"` detected:
 
 ```
 REQUIRED:
-├── Chrome Web Store:
-│   ├── Chrome Web Store Developer account ($5 one-time)
-│   ├── OAuth2 client credentials (client_id, client_secret, refresh_token)
-│   │   → Chrome Web Store API uses OAuth, not simple API keys
-│   └── Extension ID (after first upload)
-│
-├── Firefox Add-ons:
-│   ├── addons.mozilla.org account (free)
-│   ├── JWT API credentials (issuer + secret)
-│   │   → addons.mozilla.org → Developer Hub → Manage API Keys
-│   └── Extension ID / GUID
-│
-└── Edge Add-ons:
-    └── Microsoft Partner Center (same as Windows desktop)
+├── Chrome Web Store: OAuth2 credentials ($5 one-time)
+├── Firefox Add-ons: JWT credentials (free)
+└── Edge Add-ons: Microsoft Partner Center
+
+AGENT DOES: Package extension, upload builds, manage listings
+HUMAN DOES: Register developer accounts, pay one-time fees
 ```
 
 ### CLI Tools / Libraries (Publishing)
 
-If the project appears to be a publishable package:
-
 ```
-REQUIRED:
+REQUIRED per registry:
 ├── npm: NPM_TOKEN
-│   → npmjs.com → Access Tokens → Generate New Token (Automation)
 ├── PyPI: PYPI_API_TOKEN
-│   → pypi.org → Account Settings → API tokens
 ├── crates.io: CARGO_REGISTRY_TOKEN
-│   → crates.io → Account Settings → API Tokens
 ├── RubyGems: GEM_HOST_API_KEY
-│   → rubygems.org → Profile → API Keys
-└── Go: (no token needed, uses git)
+└── Go: (no token needed)
+
+AGENT DOES: Build, test, version, publish
+HUMAN DOES: Create registry account, generate token
 ```
 
 ### Containerized Apps
 
-If `Dockerfile` detected without a deploy target:
-
 ```
 REQUIRED:
-├── Container Registry:
-│   ├── Docker Hub: DOCKER_USERNAME + DOCKER_PASSWORD/TOKEN
-│   ├── GitHub Container Registry: GITHUB_TOKEN (with packages scope)
-│   ├── Google Artifact Registry: GCP service account JSON
-│   ├── AWS ECR: AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
-│   └── Self-hosted: REGISTRY_URL + credentials
-│
-└── Container Host (where to run it):
-    ├── Fly.io: FLY_API_TOKEN
-    ├── Railway: RAILWAY_TOKEN
-    ├── Google Cloud Run: GCP service account JSON
-    ├── AWS ECS/Fargate: AWS credentials
-    ├── VPS: SSH credentials
-    └── Kubernetes: kubeconfig
+├── Container Registry (Docker Hub, GHCR, ECR, GCR, self-hosted)
+└── Container Host (Fly, Railway, Cloud Run, ECS, VPS, K8s)
+
+AGENT DOES: Build images, push to registry, deploy, manage scaling
+HUMAN DOES: Create accounts, paste credentials
 ```
 
 ---
 
-## 4. Provider Research Protocol
+## 4. Gap Analysis & Polyfill
 
-When the scan detects a service or the user names a provider, and the agent doesn't have hardcoded knowledge of it:
+After scan + credential collection, identify what's missing for the project to actually go live.
 
-### Research Steps
+### The Agent Thinks in User Flows
 
-1. **Search** for `"[provider name] API documentation"` and `"[provider name] developer API"`
-2. **Read** their API docs — find:
-   - Auth method (API key, OAuth, Basic auth, etc.)
-   - Where to create credentials (exact URL)
-   - What permissions/scopes to request
-   - A simple read-only endpoint for validation
-3. **Build a guide** — step-by-step instructions for this specific provider
-4. **Write a validation call** — minimal API request to prove the credential works
-5. **Determine the variable name** — follow the convention: `[PROVIDER]_[CREDENTIAL_TYPE]`
+Don't think in services — think in what the end user of the app does:
 
-### When a Provider Has No API
+```
+"A user visits the site"
+  → Need: hosting + DNS + domain + SSL
+  → Is all of this wired up?
 
-Some providers (especially traditional webhosts) are dashboard-only. Options:
+"A user signs up"
+  → Need: auth provider + email (for verification)
+  → Auth is configured but no email? That's a broken flow.
 
-- **SSH/SFTP access** — many hosts offer this even without an API. Collect SSH key or password.
-- **FTP** — last resort, but it works. Collect FTP host, user, password.
-- **cPanel API** — many shared hosts run cPanel, which has a REST API. Search for `"[provider] cPanel API"`.
-- **Suggest a polyfill** — e.g., point DNS to Cloudflare for API-managed DNS, even if the host's DNS panel is manual.
-- **Accept the limitation** — not everything needs to be automated. If the user deploys once a month via dashboard, that's fine.
+"A user makes a purchase"
+  → Need: payment provider + webhooks + database (to record it)
+  → Stripe key exists but no webhook secret? Payments will seem to work but won't be recorded.
+
+"A user uploads a file"
+  → Need: storage provider
+  → Storage SDK imported but no bucket configured?
+
+"The developer pushes code"
+  → Need: CI/CD or deploy pipeline
+  → Code is ready but no deploy mechanism? That's the last mile.
+```
+
+Report gaps as broken flows, not missing services:
+
+> Your app has user registration, but no email provider configured. Users won't receive verification emails, so signups will silently fail. Want to set up email sending?
+
+### Polyfill Rules
+
+1. **Never replace** — if the user's provider works, use it
+2. **Only polyfill gaps** — suggest new services only when a user flow is broken
+3. **Cloudflare as DNS polyfill** — the one case where it's always appropriate: user's registrar has no DNS API → point nameservers to Cloudflare (free)
+4. **SSH/FTP as deploy fallback** — host has no deploy API but has SSH? Deploy via rsync.
+5. **SMTP as email fallback** — no email API but host includes SMTP? Use SMTP.
 
 ---
 
-## 5. Gap Analysis & Polyfill
+## 5. Credential Collection Protocol
 
-After scanning the project and collecting what's available, identify gaps.
+For each credential the agent needs:
 
-### Common Patterns
+### The Agent's Checklist (internal, don't show to user)
 
-**Project uses a service but has no credentials configured:**
-> I see `@supabase/supabase-js` in your dependencies but no Supabase URL or keys configured. Do you have an existing Supabase project for this app, or should we set one up?
+```
+□ 1. RESEARCH: Fetch this provider's CURRENT docs
+      Search: "[provider] API documentation"
+      Search: "[provider] create API key"
+      Search: "[provider] developer portal"
+      Read: their auth/authentication page
+      Read: their API reference (at least the auth section)
+      Note: auth method, token format, required scopes
 
-**Project has a deploy target but no deploy credentials:**
-> Your `vercel.json` tells me this deploys to Vercel, but I don't have an API token. Let me walk you through creating one.
+□ 2. FIND: The exact current URL where the user creates credentials
+      DO NOT use a URL from training data
+      DO verify the URL loads and goes where expected
+      If the URL has changed, find the new one
 
-**Project needs something it doesn't explicitly use yet:**
-> Your app has user signup but no email sending capability. Users won't be able to receive verification emails or password resets. Want to set up an email provider?
+□ 3. GUIDE: Write the minimum steps
+      "Go to [URL]. Click [button]. Name it [suggestion]. Copy the result."
+      No preamble. No history. No explanations they didn't ask for.
 
-**Project references env vars that don't exist:**
-Scan source code for `process.env.SOMETHING`, `os.environ["SOMETHING"]`, `env("SOMETHING")`, etc. Cross-reference with what actually exists in `.env` files and `~/.open-your-eyes/secrets.env`. Report any that are referenced but undefined.
+□ 4. COLLECT: Ask for the credential
+      "Paste your [provider] API key here."
+      One credential at a time, or batch if the user is fast.
 
-### The Polyfill Principle
+□ 5. VALIDATE: Make a real API call
+      Use the CURRENT endpoint from the docs you just fetched
+      Hit a read-only endpoint (list projects, get account info)
+      Report: "✓ Connected to [account name]" or diagnose failure
 
-Only suggest adding a new service when:
-1. The project already depends on it (detected in code) but credentials are missing, OR
-2. A core user flow is broken without it (e.g., auth exists but no email = no verification), OR
-3. The user explicitly asks for a new capability
+□ 6. STORE: Write to ~/.open-your-eyes/secrets.env
+      Variable name: [PROVIDER]_[CREDENTIAL_TYPE]
+      Include [ROLE]_PROVIDER=[provider] tag
 
-Never suggest services "because it would be nice." If the project doesn't use analytics, don't suggest adding PostHog.
+□ 7. CONFIRM: Tell the user what this unlocks
+      "✓ I can now deploy to your Vercel account."
+      One sentence. Move on.
+```
+
+### When Validation Fails
+
+The agent's job is to diagnose, not punt back to the user:
+
+```
+401 Unauthorized:
+  → Key is wrong, expired, or has wrong permissions
+  → Check: was it copied with extra whitespace?
+  → Check: is it the right type of key? (API key vs OAuth token vs...)
+  → Guide: "That key didn't work. The most common reason is [X].
+    Try [specific fix]. If that doesn't work, create a new key at [URL]."
+
+403 Forbidden:
+  → Key works but lacks permissions
+  → Guide: "Your key doesn't have permission to [action]. Go to [URL]
+    and make sure [specific permission] is enabled."
+
+404 Not Found:
+  → Endpoint may have changed (this is why you fetch live docs!)
+  → Re-check the current API docs
+  → If the endpoint moved, update your validation call
+
+Connection refused / timeout:
+  → Service might be down, or URL is wrong
+  → Check the provider's status page
+```
 
 ---
 
@@ -518,9 +619,9 @@ Never suggest services "because it would be nice." If the project doesn't use an
 ### Location
 ```
 ~/.open-your-eyes/
-├── secrets.env           # All credentials — never committed
-├── config.yaml           # Non-secret config (provider choices, preferences)
-└── validation-log.json   # Last successful validation per service
+├── secrets.env           # All credentials — chmod 600, never committed
+├── config.yaml           # Non-secret config (preferences, regions)
+└── validation-log.json   # Last validation result per service
 ```
 
 ### Setup (run once, idempotent)
@@ -532,10 +633,9 @@ grep -qxF '.open-your-eyes/' ~/.gitignore_global 2>/dev/null || echo ".open-your
 git config --global core.excludesFile ~/.gitignore_global
 ```
 
-### Variable Naming Convention
+### secrets.env Format
 ```bash
-# Pattern: [PROVIDER]_[CREDENTIAL_TYPE]
-# Group by role, tag with provider
+# Pattern: [ROLE]_PROVIDER=[name] then [PROVIDER]_[CREDENTIAL_TYPE]=[value]
 
 # ===== DEPLOY =====
 DEPLOY_PROVIDER=vercel
@@ -564,9 +664,6 @@ STRIPE_PUBLISHABLE_KEY=xxx
 STRIPE_SECRET_KEY=xxx
 
 # ===== EMAIL =====
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=xxx
-# — or —
 EMAIL_PROVIDER=smtp
 SMTP_HOST=xxx
 SMTP_PORT=587
@@ -577,98 +674,100 @@ SMTP_PASS=xxx
 APPLE_TEAM_ID=xxx
 APPLE_API_KEY_ID=xxx
 APPLE_API_ISSUER_ID=xxx
-APPLE_API_KEY_PATH=~/.open-your-eyes/AuthKey_XXXXX.p8
+APPLE_API_KEY_PATH=~/.open-your-eyes/keys/AuthKey_XXXXX.p8
 
 # ===== MOBILE (Android) =====
-GOOGLE_PLAY_JSON_KEY_PATH=~/.open-your-eyes/google-play-service-account.json
+GOOGLE_PLAY_JSON_KEY_PATH=~/.open-your-eyes/keys/google-play.json
 ANDROID_KEYSTORE_PATH=xxx
 ANDROID_KEYSTORE_PASSWORD=xxx
 ANDROID_KEY_ALIAS=xxx
 ANDROID_KEY_PASSWORD=xxx
 ```
 
-### Validation Log
-```json
-{
-  "project_path": "/Users/you/code/your-project",
-  "scanned_at": "2025-01-15T10:00:00Z",
-  "project_type": "nextjs-web-app",
-  "services": {
-    "deploy": { "provider": "vercel", "status": "ok", "validated_at": "..." },
-    "database": { "provider": "supabase", "status": "ok", "validated_at": "..." },
-    "payments": { "provider": "stripe", "status": "ok", "mode": "test", "validated_at": "..." }
-  }
-}
-```
-
 ---
 
 ## 7. Validation Gates
 
-After collecting credentials, prove the pipeline works end-to-end.
+Prove the pipeline works. Don't validate services in isolation — validate **user flows**.
 
-### Gate Selection
-
-Run only the gates relevant to this project's type:
+### Gate Selection (based on project type)
 
 | Project Type | Gate |
 |-------------|------|
-| Any web project | Can I deploy to your host and serve the site? |
-| Web + custom domain | Can I point your domain at the deployment? |
-| Web + database | Can I create a table, write a row, read it back? |
-| Web + payments | Can I create a test product in your payment provider? |
-| Web + email | Can I send a test email? |
-| Mobile (iOS) | Can I validate signing and connect to App Store Connect? |
-| Mobile (Android) | Can I validate the keystore and connect to Google Play Console? |
-| Desktop | Can I code-sign a test binary? |
-| Container | Can I push a test image to your registry? |
+| Any web project | Deploy a test page to the host |
+| Web + custom domain | Point domain at deployment, confirm HTTPS |
+| Web + database | Create table, write row, read it back, clean up |
+| Web + payments | Create test product, clean up |
+| Web + email | Send test email to user |
+| Mobile (iOS) | Validate signing, connect to App Store Connect |
+| Mobile (Android) | Validate keystore, connect to Google Play |
+| Desktop | Code-sign a test binary |
+| Container | Push test image to registry |
 
 ### Gate Protocol
 
-For each applicable gate:
-1. Tell the user what you're about to do
-2. Ask permission
-3. Create minimal test resources
-4. Verify they work
+```
+1. Tell the user what you're about to do (one sentence)
+2. Ask: "OK to proceed?" (this is the APPROVE step)
+3. Do it
+4. Report result
 5. Clean up test resources
-6. Report result
+6. Move on — don't celebrate, don't recap
+```
 
 ---
 
-## 8. Re-entry & Maintenance
+## 8. After Setup: What the Agent Can Now Do
 
-### When to Re-scan
-- **New dependency added** — user installs a new package that implies a service
-- **Missing credential at runtime** — agent tries to use a key that doesn't exist
-- **Expired credential** — API returns 401/403
-- **New project** — playbook dropped into a different project
+Once credentials are collected and validated, the agent should confirm what's unlocked:
 
-### When to Re-validate
-- User says "check everything still works"
-- It's been >30 days since last validation (check validation-log.json)
-- After rotating any credential
+```
+EXAMPLE:
 
-### Project-to-Project Portability
-Credentials in `~/.open-your-eyes/secrets.env` are global — they work across all projects. When the playbook is dropped into a new project, the agent:
-1. Scans the new project
-2. Checks which required credentials already exist in secrets.env
-3. Validates the existing credentials still work
-4. Only asks for new credentials specific to this project
+✓ Setup complete. Here's what I can do for you now:
+
+  Deploy code to your Vercel account         → say "deploy" or "ship it"
+  Point your domain at any deployment        → automatic after deploy
+  Create and manage database tables          → just describe your data model
+  Set up user auth and registration          → just describe who can do what
+  Process payments via Stripe (test mode)    → describe your pricing
+  Send emails from your app                  → describe when to send what
+
+  You approve. I do the rest.
+```
 
 ---
 
-## 9. How to Use This Playbook
+## 9. Re-entry Points
 
-**Drop it into any project** and tell an AI agent:
+The playbook isn't one-time. The agent re-enters it when:
 
-> "Scan this project and set me up for auto-deploy."
+- **Missing credential at runtime** — tried to deploy, no token → run deploy credential section
+- **Expired credential** — API returns 401 → guide rotation
+- **New dependency added** — user installed a new SDK → re-scan, detect new requirements
+- **New project** — playbook dropped into different project → full scan, reuse existing global creds
+- **User asks** — "add payments to this app" → run payments section
+- **Stale validation** — >30 days since last check → re-validate all stored credentials
 
-The agent will:
-1. Scan your codebase to detect what services you use
-2. Check what credentials you already have
-3. Show you what's missing
-4. Walk you through collecting each missing credential
-5. Validate everything works
-6. Store credentials securely on your machine
+---
 
-**That's it.** From then on, the agent can deploy your project, manage your database, process payments, send emails — whatever your project needs — without you touching a dashboard.
+## 10. How to Use This Playbook
+
+**Drop it into any project.** Tell your AI agent:
+
+> "Set me up."
+
+The agent scans your code, figures out what's needed, fetches the latest docs for every service, and tells you exactly what to click. You approve, log in, paste keys. The agent handles everything else.
+
+---
+
+## Appendix: The Dependency Map Is a Starting Point
+
+The package-to-service mappings in Section 1 are not exhaustive. New services appear constantly. If the agent encounters an import or SDK it doesn't recognize:
+
+1. Search for it: `"[package name] npm"` or `"[package name] documentation"`
+2. Determine what service it belongs to
+3. Add it to the mental model for this project
+4. Follow the standard credential collection protocol
+
+The map is a cheat sheet, not a limit. The agent should be able to handle anything it finds in the code.
