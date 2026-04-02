@@ -12,20 +12,25 @@ interface Provider {
   domains?: Array<{ name: string; id?: number }>;
 }
 
-interface Project {
+interface LaunchedProject {
   name: string;
-  path: string;
-  type?: string;
-  framework?: string;
-  deploy?: { provider: string; projectId?: string };
-  envFiles?: string[];
+  url: string;
+  itch?: string;
+  type: string;
+  tags: string[];
+  description: string;
 }
 
-interface DevDeploy {
-  project: string;
-  subdomain: string;
-  deployed_at: string;
-  source: string;
+interface BuriedProject {
+  name: string;
+  framework: string;
+  hasBuild?: boolean;
+  path: string;
+}
+
+interface LiveSubdomain {
+  name: string;
+  url: string;
 }
 
 interface StatusData {
@@ -41,6 +46,17 @@ interface SecretsData {
 interface Capabilities {
   configured: boolean;
   capabilities: Record<string, unknown>;
+}
+
+interface SnapshotData {
+  status: StatusData;
+  providers: Provider[];
+  secrets: SecretsData;
+  capabilities: Capabilities;
+  launched?: LaunchedProject[];
+  buried?: BuriedProject[];
+  liveSubdomains?: LiveSubdomain[];
+  generated_at?: string;
 }
 
 function StatusBadge({ ok }: { ok: boolean }) {
@@ -90,102 +106,71 @@ function Card({
   );
 }
 
-// Map a provider's credential_keys to the secrets data to show keys under each service
-function getProviderKeys(
-  provider: Provider,
-  secrets: SecretsData
-): Array<{ key: string; redacted: string; exists: boolean }> {
-  // If the provider has explicit credential_keys, use those
-  if (provider.credential_keys && provider.credential_keys.length > 0) {
-    return provider.credential_keys.map((k) => ({
-      key: k,
-      redacted: secrets[k]?.redacted || "not set",
-      exists: secrets[k]?.exists || false,
-    }));
-  }
-  // Otherwise try to match secrets by provider name prefix
-  const prefix = provider.name.toUpperCase().replace(/[^A-Z]/g, "");
-  const matched = Object.keys(secrets).filter(
-    (k) =>
-      k.toUpperCase().startsWith(prefix) ||
-      k.toUpperCase().includes(prefix.slice(0, 4))
-  );
-  return matched.map((k) => ({
-    key: k,
-    redacted: secrets[k].redacted,
-    exists: secrets[k].exists,
-  }));
-}
+const typeColors: Record<string, string> = {
+  game: "#f59e0b",
+  creative: "#a78bfa",
+  business: "#22c55e",
+  tool: "#60a5fa",
+  event: "#f472b6",
+};
 
 function App() {
-  const [status, setStatus] = useState<StatusData | null>(null);
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [devDeploys, setDevDeploys] = useState<DevDeploy[]>([]);
-  const [secrets, setSecrets] = useState<SecretsData>({});
-  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
+  const [data, setData] = useState<SnapshotData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Try live API first, fall back to static snapshot
-    Promise.all([
-      fetch(`${API}/status`).then((r) => {
+    fetch(`${API}/status`)
+      .then((r) => {
         if (!r.ok) throw new Error("API not available");
-        return r.json();
-      }),
-      fetch(`${API}/providers`).then((r) => r.json()),
-      fetch(`${API}/projects`).then((r) => r.json()),
-      fetch(`${API}/dev-deploys`).then((r) => r.json()),
-      fetch(`${API}/secrets`).then((r) => r.json()),
-      fetch(`${API}/capabilities`).then((r) => r.json()),
-    ])
-      .then(([s, prov, proj, dev, sec, cap]) => {
-        setStatus(s);
-        setProviders(prov);
-        setProjects(proj);
-        setDevDeploys(dev.deploys || []);
-        setSecrets(sec);
-        setCapabilities(cap);
+        return Promise.all([
+          r.json(),
+          fetch(`${API}/providers`).then((r) => r.json()),
+          fetch(`${API}/secrets`).then((r) => r.json()),
+          fetch(`${API}/capabilities`).then((r) => r.json()),
+        ]);
       })
-      .catch(() => {
-        // Fall back to static snapshot (baked at build time)
+      .then(([status, providers, secrets, capabilities]) => {
+        // Live API — merge with snapshot for launched/buried data
         fetch("/snapshot.json")
           .then((r) => r.json())
           .then((snap) => {
-            setStatus(snap.status);
-            setProviders(snap.providers || []);
-            setProjects(snap.projects || []);
-            setDevDeploys(snap.devDeploys?.deploys || []);
-            setSecrets(snap.secrets || {});
-            setCapabilities(snap.capabilities || null);
+            setData({
+              status,
+              providers,
+              secrets,
+              capabilities,
+              launched: snap.launched || [],
+              buried: snap.buried || [],
+              liveSubdomains: snap.liveSubdomains || [],
+              generated_at: snap.generated_at,
+            });
           })
           .catch(() => {
-            setError(
-              "No API server and no snapshot found. Run locally: cd dashboard && npm run start"
-            );
+            setData({ status, providers, secrets, capabilities });
           });
+      })
+      .catch(() => {
+        // Fall back to static snapshot
+        fetch("/snapshot.json")
+          .then((r) => r.json())
+          .then((snap: SnapshotData) => setData(snap))
+          .catch(() =>
+            setError("No data available. Run locally or rebuild with snapshot.")
+          );
       });
   }, []);
 
   if (error) {
     return (
       <div style={rootStyle}>
-        <h1 style={{ fontSize: 24, margin: "0 0 16px 0" }}>Introdote</h1>
-        <div
-          style={{
-            background: "#2a1a1a",
-            border: "1px solid #ef4444",
-            borderRadius: 8,
-            padding: 16,
-          }}
-        >
-          <p style={{ margin: 0, color: "#ef4444" }}>{error}</p>
-        </div>
+        <h1 style={{ fontSize: 24 }}>Introdote</h1>
+        <p style={{ color: "#ef4444", marginTop: 16 }}>{error}</p>
       </div>
     );
   }
 
-  if (!status) {
+  if (!data) {
     return (
       <div style={rootStyle}>
         <p style={{ color: "#888" }}>Loading...</p>
@@ -193,43 +178,19 @@ function App() {
     );
   }
 
-  const deployedProjects = projects.filter((p) => p.deploy);
-  const undeployedProjects = projects.filter((p) => !p.deploy);
-
-  // Extract domains from capabilities
-  const caps = capabilities?.capabilities as Record<string, Record<string, unknown>> | undefined;
-  const allDomains: Array<{
-    name: string;
-    registrar: string;
-    pointing_at?: string;
-    expires?: string;
-    auto_renew?: boolean;
-  }> = [];
-  if (caps?.domain_registration) {
-    const domains = (caps.domain_registration as Record<string, unknown>).domains as Array<Record<string, unknown>> | undefined;
-    if (domains) {
-      for (const d of domains) {
-        allDomains.push({
-          name: String(d.name || ""),
-          registrar: String((caps.domain_registration as Record<string, unknown>).provider || ""),
-          pointing_at: d.pointing_at ? String(d.pointing_at) : undefined,
-          expires: d.expires ? String(d.expires) : undefined,
-          auto_renew: d.auto_renew as boolean | undefined,
-        });
-      }
-    }
-  }
+  const launched = data.launched || [];
+  const buried = data.buried || [];
+  const liveSubdomains = data.liveSubdomains || [];
+  const providers = data.providers || [];
 
   return (
     <div style={rootStyle}>
       <header style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, margin: "0 0 4px 0", fontWeight: 700 }}>
+        <h1 style={{ fontSize: 32, margin: "0 0 4px 0", fontWeight: 700 }}>
           Introdote
         </h1>
         <p style={{ margin: 0, color: "#888", fontSize: 14 }}>
-          {status.installed
-            ? `Reading from ${status.oye_dir}`
-            : "Not installed yet — run install.sh"}
+          Your projects don't stay buried.
         </p>
       </header>
 
@@ -240,249 +201,243 @@ function App() {
           gap: 20,
         }}
       >
-        {/* Connected Services (merged with API Keys) */}
-        <Card title="Connected Services">
-          {providers.length === 0 && !capabilities?.configured ? (
+        {/* Launched Projects */}
+        <Card title={`Launched (${launched.length})`}>
+          {launched.length === 0 ? (
             <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
-              No services connected yet. Tell your agent: "open your eyes"
+              Nothing launched yet. Say "introdote" in any project.
             </p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {providers.map((p) => {
-                const keys = getProviderKeys(p, secrets);
-                return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {launched.map((p) => (
+                <a
+                  key={p.name}
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "block",
+                    padding: 12,
+                    background: "#12121f",
+                    borderRadius: 8,
+                    border: "1px solid #2a2a4a",
+                    textDecoration: "none",
+                    color: "inherit",
+                  }}
+                >
                   <div
-                    key={p.name}
                     style={{
-                      padding: 12,
-                      background: "#12121f",
-                      borderRadius: 8,
-                      border: "1px solid #2a2a4a",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 4,
                     }}
                   >
-                    <div
+                    <strong style={{ fontSize: 15, color: "#e0e0e0" }}>
+                      {p.name}
+                    </strong>
+                    <span
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: keys.length > 0 ? 8 : 0,
+                        fontSize: 11,
+                        padding: "2px 8px",
+                        borderRadius: 6,
+                        background: (typeColors[p.type] || "#888") + "22",
+                        color: typeColors[p.type] || "#888",
+                        fontWeight: 600,
                       }}
                     >
-                      <div>
-                        <StatusBadge ok={p.status === "ok"} />
-                        <strong style={{ fontSize: 15 }}>{p.name}</strong>
-                        <span style={{ color: "#666", marginLeft: 8, fontSize: 13 }}>
-                          {p.role}
-                        </span>
-                      </div>
-                      <span style={{ color: "#555", fontSize: 12 }}>
-                        {p.account || ""}
-                      </span>
-                    </div>
-                    {keys.length > 0 && (
-                      <div style={{ marginLeft: 16 }}>
-                        {keys.map((k) => (
-                          <div
-                            key={k.key}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              padding: "2px 0",
-                              fontSize: 12,
-                            }}
-                          >
-                            <code style={{ color: "#888" }}>{k.key}</code>
-                            <code style={{ color: k.exists ? "#555" : "#ef4444" }}>
-                              {k.redacted}
-                            </code>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {p.validated_at && (
-                      <div
+                      {p.type}
+                    </span>
+                  </div>
+                  <p
+                    style={{
+                      margin: "0 0 6px 0",
+                      fontSize: 13,
+                      color: "#888",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {p.description}
+                  </p>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {p.tags.map((t) => (
+                      <span
+                        key={t}
                         style={{
-                          fontSize: 11,
-                          color: "#444",
-                          marginTop: 4,
-                          marginLeft: 16,
+                          fontSize: 10,
+                          padding: "1px 6px",
+                          borderRadius: 4,
+                          background: "#1a1a2e",
+                          color: "#666",
+                          border: "1px solid #2a2a4a",
                         }}
                       >
-                        Validated: {new Date(p.validated_at).toLocaleDateString()}
-                      </div>
-                    )}
+                        {t}
+                      </span>
+                    ))}
                   </div>
-                );
-              })}
+                  {p.itch && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: "#555" }}>
+                      Also on{" "}
+                      <span style={{ color: "#f472b6" }}>itch.io</span>
+                    </div>
+                  )}
+                </a>
+              ))}
             </div>
           )}
         </Card>
 
-        {/* Domains */}
-        <Card title={`Domains (${allDomains.length})`}>
-          {allDomains.length === 0 ? (
+        {/* Live Subdomains */}
+        <Card title={`Live on patrickreinbold.com (${liveSubdomains.length})`}>
+          {liveSubdomains.length === 0 ? (
             <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
-              No domains configured yet
+              No subdomains active
             </p>
           ) : (
-            <table style={tableStyle}>
-              <tbody>
-                {allDomains.map((d) => (
-                  <tr key={d.name}>
-                    <td>
-                      <StatusBadge ok={true} />
-                      <strong>{d.name}</strong>
-                    </td>
-                    <td style={{ color: "#888", fontSize: 13 }}>{d.registrar}</td>
-                    <td style={{ color: "#888", fontSize: 13, textAlign: "right" }}>
-                      {d.pointing_at && (
-                        <span>
-                          &rarr; {d.pointing_at}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {allDomains
-                  .filter((d) => d.expires)
-                  .map((d) => (
-                    <tr key={d.name + "-expiry"}>
-                      <td colSpan={3} style={{ fontSize: 12, color: "#555", paddingLeft: 16 }}>
-                        Expires: {d.expires}
-                        {d.auto_renew === false && (
-                          <span style={{ color: "#f59e0b", marginLeft: 8 }}>
-                            auto-renew off
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 6,
+              }}
+            >
+              {liveSubdomains.map((s) => (
+                <a
+                  key={s.name}
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 13,
+                    color: "#60a5fa",
+                    textDecoration: "none",
+                    padding: "4px 0",
+                  }}
+                >
+                  {s.name}
+                </a>
+              ))}
+            </div>
           )}
         </Card>
 
-        {/* System Status */}
-        <Card title="System">
-          <table style={tableStyle}>
-            <tbody>
-              {Object.entries(status.files).map(([file, exists]) => (
-                <tr key={file}>
-                  <td>
-                    <StatusBadge ok={exists} />
-                    <code style={{ fontSize: 13 }}>{file}</code>
-                  </td>
-                  <td
+        {/* Buried — ready to introdote */}
+        <Card title={`Buried — ready to ship (${buried.length})`}>
+          {buried.length === 0 ? (
+            <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
+              Nothing buried — everything is shipped!
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {buried.map((p) => (
+                <div
+                  key={p.name}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "4px 0",
+                    fontSize: 13,
+                  }}
+                >
+                  <span style={{ color: "#aaa" }}>{p.name}</span>
+                  <span
                     style={{
-                      color: exists ? "#22c55e" : "#ef4444",
-                      textAlign: "right",
+                      fontSize: 11,
+                      color: "#555",
+                      fontFamily: "monospace",
                     }}
                   >
-                    {exists ? "ready" : "missing"}
-                  </td>
-                </tr>
+                    {p.framework}
+                    {p.hasBuild ? " (built)" : ""}
+                  </span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </Card>
-
-        {/* Deployed Projects */}
-        <Card title={`Deployed Projects (${deployedProjects.length})`}>
-          {deployedProjects.length === 0 ? (
-            <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
-              No projects deployed yet
-            </p>
-          ) : (
-            <table style={tableStyle}>
-              <tbody>
-                {deployedProjects.map((p) => (
-                  <tr key={p.name}>
-                    <td>
-                      <StatusBadge ok={true} />
-                      <strong>{p.name}</strong>
-                    </td>
-                    <td style={{ color: "#888" }}>
-                      {p.framework || p.type || ""}
-                    </td>
-                    <td style={{ color: "#888", textAlign: "right" }}>
-                      {p.deploy?.provider}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              {buried.length < 24 && (
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "#444",
+                    marginTop: 4,
+                  }}
+                >
+                  +{24 - buried.length} more in ~/code/ and ~/Desktop/appaday
+                </p>
+              )}
+            </div>
           )}
         </Card>
 
-        {/* Local Projects */}
-        <Card title={`Local Projects (${undeployedProjects.length})`}>
-          {undeployedProjects.length === 0 ? (
+        {/* Connected Services */}
+        <Card title={`Services (${providers.length})`}>
+          {providers.length === 0 ? (
             <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
-              All projects are deployed
+              No services connected
             </p>
           ) : (
-            <table style={tableStyle}>
-              <tbody>
-                {undeployedProjects.slice(0, 15).map((p) => (
-                  <tr key={p.name}>
-                    <td>
-                      <span style={{ color: "#555", marginRight: 8 }}>
-                        --
-                      </span>
-                      {p.name}
-                    </td>
-                    <td style={{ color: "#888", textAlign: "right" }}>
-                      {p.framework || p.type || ""}
-                    </td>
-                  </tr>
-                ))}
-                {undeployedProjects.length > 15 && (
-                  <tr>
-                    <td colSpan={2} style={{ color: "#555", fontSize: 13 }}>
-                      +{undeployedProjects.length - 15} more
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </Card>
-
-        {/* Dev Previews */}
-        <Card title={`Dev Previews (${devDeploys.length})`}>
-          {devDeploys.length === 0 ? (
-            <p style={{ color: "#666", margin: 0, fontSize: 14 }}>
-              No dev previews active. Tell your agent: "preview this"
-            </p>
-          ) : (
-            <table style={tableStyle}>
-              <tbody>
-                {devDeploys.map((d) => (
-                  <tr key={d.project}>
-                    <td>
-                      <StatusBadge ok={true} />
-                      <a
-                        href={`https://${d.subdomain}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: "#60a5fa", textDecoration: "none" }}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {providers.map((p) => (
+                <div
+                  key={p.name}
+                  style={{
+                    padding: 12,
+                    background: "#12121f",
+                    borderRadius: 8,
+                    border: "1px solid #2a2a4a",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <StatusBadge ok={p.status === "ok"} />
+                      <strong style={{ fontSize: 15 }}>{p.name}</strong>
+                      <span
+                        style={{ color: "#666", marginLeft: 8, fontSize: 13 }}
                       >
-                        {d.subdomain}
-                      </a>
-                    </td>
-                    <td
+                        {p.role}
+                      </span>
+                    </div>
+                  </div>
+                  {p.domains && p.domains.length > 0 && (
+                    <div
                       style={{
-                        color: "#888",
-                        textAlign: "right",
-                        fontSize: 12,
+                        marginTop: 8,
+                        marginLeft: 16,
+                        display: "flex",
+                        gap: 6,
+                        flexWrap: "wrap",
                       }}
                     >
-                      {new Date(d.deployed_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      {p.domains.map((d) => (
+                        <a
+                          key={d.name}
+                          href={`https://${d.name}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: 11,
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            background: "#1a1a2e",
+                            color: "#60a5fa",
+                            border: "1px solid #2a2a4a",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {d.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </Card>
       </div>
@@ -494,9 +449,21 @@ function App() {
           borderTop: "1px solid #2a2a4a",
           color: "#555",
           fontSize: 12,
+          display: "flex",
+          justifyContent: "space-between",
         }}
       >
-        Introdote — say "finish" to ship, "preview this" for dev
+        <span>
+          Introdote — your projects don't stay buried
+        </span>
+        <a
+          href="https://github.com/st-patrick/introdote"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#555", textDecoration: "none" }}
+        >
+          GitHub
+        </a>
       </footer>
     </div>
   );
@@ -511,12 +478,6 @@ const rootStyle: React.CSSProperties = {
   color: "#e0e0e0",
   background: "#0f0f1a",
   minHeight: "100vh",
-};
-
-const tableStyle: React.CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: 14,
 };
 
 export default App;
