@@ -7,7 +7,8 @@
     "dev": "vite",
     "server": "npx tsx server.ts",
     "start": "npx tsx server.ts & vite",
-    "build": "tsc -b && vite build",
+    "snapshot": "npx tsx snapshot.ts",
+    "build": "npx tsx snapshot.ts && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -39,3 +39,35 @@ Implementation approach:
 - Validation script `oye-validate [provider]` that sources env internally and reports pass/fail
 
 ---
+
+## Zero-Friction Publishing: Build → Deploy → Tell the World
+
+The real vision isn't a deployment pipeline — it's removing ALL friction from publishing things. "finish" should mean:
+
+1. **Deploy** — the site/app/game goes live (already built)
+2. **Announce** — the agent immediately helps you tell people about it:
+   - Opens the relevant Reddit community with a post template ready to copy
+   - Drafts a tweet/X post with screenshots and link
+   - Drafts a Show HN post
+   - Creates a Product Hunt draft
+   - Generates a blog post for your personal site
+   - Prepares an email to your list (if you have one)
+
+The agent should know WHAT you built (from scanning the code) and WHERE to announce it (from the project type):
+- Game → r/WebGames, r/IndieGaming, itch.io
+- Developer tool → r/Programming, Hacker News, Dev.to
+- SaaS → r/SaaS, Product Hunt, Indie Hackers
+- Mobile app → r/AndroidDev or r/iOSProgramming, App Store optimization
+- Desktop app → relevant subreddit, GitHub Releases
+
+For each channel, the agent:
+- Opens the submission page in the browser
+- Pre-fills or copies the title, description, and link to clipboard
+- Generates screenshots/OG images if needed
+- The human just reviews and clicks "Post"
+
+This extends the prime directive: **human approves, agent does everything else** — including marketing.
+
+Could also integrate with social media APIs (Twitter/X API, Reddit API) to post directly with human approval, but opening tabs with templates is the zero-dependency version.
+
+---

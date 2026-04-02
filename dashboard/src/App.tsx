@@ -127,8 +127,12 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Try live API first, fall back to static snapshot
     Promise.all([
-      fetch(`${API}/status`).then((r) => r.json()),
+      fetch(`${API}/status`).then((r) => {
+        if (!r.ok) throw new Error("API not available");
+        return r.json();
+      }),
       fetch(`${API}/providers`).then((r) => r.json()),
       fetch(`${API}/projects`).then((r) => r.json()),
       fetch(`${API}/dev-deploys`).then((r) => r.json()),
@@ -144,9 +148,22 @@ function App() {
         setCapabilities(cap);
       })
       .catch(() => {
-        setError(
-          "Can't reach the API server. Run: npx tsx server.ts (in the dashboard/ directory)"
-        );
+        // Fall back to static snapshot (baked at build time)
+        fetch("/snapshot.json")
+          .then((r) => r.json())
+          .then((snap) => {
+            setStatus(snap.status);
+            setProviders(snap.providers || []);
+            setProjects(snap.projects || []);
+            setDevDeploys(snap.devDeploys?.deploys || []);
+            setSecrets(snap.secrets || {});
+            setCapabilities(snap.capabilities || null);
+          })
+          .catch(() => {
+            setError(
+              "No API server and no snapshot found. Run locally: cd dashboard && npm run start"
+            );
+          });
       });
   }, []);
 
