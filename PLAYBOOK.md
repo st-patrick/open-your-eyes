@@ -795,23 +795,82 @@ Don't think in services. Think in what the end user does:
 
 ## Credential Collection Protocol
 
+The agent delivers a **full-service experience**. The human should never have to figure out where to go or what to click. The agent opens the pages, explains what to do on each one, and handles everything after the key is pasted.
+
 For EVERY credential, even for well-known providers:
 
 ```
 1. FETCH the provider's current docs (never trust training data)
-2. FIND the exact current URL to the credentials page
-3. GUIDE with minimum steps: "Go to [URL]. Click [button]. Paste what you see."
-4. VALIDATE with a real API call using current endpoints
-5. STORE in ~/.open-your-eyes/secrets.env
-6. UPDATE capabilities.yaml and providers/[name].yaml
-7. CONFIRM in one sentence: "✓ I can now deploy to Vercel."
+2. FIND the exact current URL to:
+   a. The sign-up / login page (if user doesn't have an account)
+   b. The API key creation page
+   c. The permissions / scopes selection page (if applicable)
+3. OPEN the URL for the user:
+   → Use `open` (macOS), `xdg-open` (Linux), or `start` (Windows)
+   → Example: open "https://vercel.com/account/tokens"
+   → Tell the user: "I've opened the page. Here's what to do there:"
+4. TELL them exactly what to do on that page:
+   → "Click 'Create Token'"
+   → "Name it 'open-your-eyes'"
+   → "Select 'Full Account' scope"
+   → "Click 'Create'"
+   → "Copy the token and paste it here"
+   → Be specific about button labels, dropdown values, toggle states
+5. COLLECT: "Paste it here."
+6. VALIDATE immediately with a real API call
+7. STORE in ~/.open-your-eyes/secrets.env
+8. UPDATE capabilities.yaml and providers/[name].yaml
+9. CONFIRM in one sentence: "✓ Connected to Vercel (account: patrick)"
+10. OPEN the next URL — don't wait, keep the flow moving
+```
+
+### Full-Service Means:
+
+```
+DON'T: "You'll need a Vercel API token. Go to vercel.com/account/tokens."
+DO:    [opens vercel.com/account/tokens in browser]
+       "I've opened Vercel's token page. Click 'Create Token', name it
+        'open-your-eyes', select 'Full Account', click 'Create', and
+        paste the token here."
+
+DON'T: "You need to add DNS records for email verification."
+DO:    [looks up the exact records needed]
+       [adds them via DNS API automatically]
+       "Done — I've added the DNS records. Verification should complete
+        in a few minutes."
+
+DON'T: "Configure your environment variables on Vercel."
+DO:    [pushes env vars to Vercel via API automatically]
+       "Environment variables synced to Vercel."
+
+DON'T: "You'll need to set up a webhook endpoint in Stripe."
+DO:    [creates the webhook via Stripe API]
+       "Webhook created and pointing at your deploy URL."
+```
+
+### Batch for Speed
+
+Don't make the user do one thing at a time. Open all the credential pages at once:
+
+```
+Agent opens 3 browser tabs simultaneously:
+  Tab 1: hosting provider's API key page
+  Tab 2: DNS provider's API token page
+  Tab 3: domain registrar's API page
+
+Agent: "I've opened 3 tabs for you:
+        1. [Provider A] — create an API key, name it 'open-your-eyes', paste here
+        2. [Provider B] — create a token with DNS edit permissions, paste here
+        3. [Provider C] — create an API key, paste both the key and secret here
+        
+        Go through them in any order. I'll validate each one as you paste it."
 ```
 
 ### When Validation Fails (agent diagnoses, doesn't punt)
 
 ```
 401 → Wrong key, expired, or wrong type. Check whitespace. Guide to recreate.
-403 → Key works but wrong permissions. Guide to correct scope.
+403 → Key works but wrong permissions. Re-open the page, guide to correct scope.
 404 → Endpoint changed. Re-fetch live docs. Update validation call.
 Timeout → Service down? Check status page. Retry later.
 ```
