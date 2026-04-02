@@ -72,10 +72,11 @@ else
     echo "    When I say 'finish' or 'open your eyes': read ~/.open-your-eyes/PLAYBOOK.md"
 fi
 
-# Copy dashboard
+# Copy dashboard (without node_modules — they need to be installed fresh)
 if [ -d "$SCRIPT_DIR/dashboard" ]; then
-    cp -r "$SCRIPT_DIR/dashboard" "$OYE_DIR/dashboard"
+    rsync -a --exclude='node_modules' --exclude='dist' "$SCRIPT_DIR/dashboard/" "$OYE_DIR/dashboard/"
     echo "  Installed dashboard"
+    echo "  Run: cd $OYE_DIR/dashboard && npm install"
 fi
 
 echo ""
