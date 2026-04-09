@@ -1,1 +1,10 @@
 node_modules/
+.DS_Store
+
+# Agent tooling memory / notes — never belongs in the public repo
+.claude/
+
+# User-generated dashboard screenshots — generated locally from the
+# user's ~/.introdote/ + their own project list. Kept out of the
+# committed repo to avoid leaking any one user's project URLs.
+dashboard/public/screenshots/

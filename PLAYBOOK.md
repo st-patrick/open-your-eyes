@@ -63,6 +63,176 @@ URLs move. Endpoints get deprecated. Auth flows change.
 
 ---
 
+## RULE: DESIGN FROM REFERENCES, NOT FROM MEMORY
+
+```
+Before writing a single line of CSS for a new site, collect 3-6 visual
+references. ALWAYS. Even if the user says "just make it nice."
+
+WHY:
+  Without explicit references, every site the agent builds drifts
+  toward whatever it made last. Three separate projects can end up
+  looking like accidental siblings because the model reuses its
+  recent aesthetic vocabulary. The only way to get visual variety
+  across multiple sites is to ANCHOR each one in a different set of
+  real references before coding.
+
+HOW:
+  At the start of any new site project, present the user with four
+  options (A and B are the default path):
+
+  A. USER-PROVIDED REFERENCES
+     "Do you have a Dribbble collection / Pinterest board / mood
+     board you could share?" If yes, fetch the images, extract
+     palette + type + mood, write Atlas/design.md with a 5-line
+     brief. Build against the brief, not against memory.
+
+  B. AGENT-HUNTED REFERENCES
+     Ask ONE question: "What should this site feel like in three
+     words?" Then WebSearch Dribbble / Behance / Awwwards /
+     SiteInspire / MinimalGallery / Land-book for those adjectives
+     + the site type. Bring back 5-7 shots (title + one-sentence
+     why + URL — don't try to embed images) and let the user pick
+     2-3 to anchor. Then write Atlas/design.md.
+
+  C. REUSE AN EXISTING FAMILY
+     Explicit only. "Make it a sibling of <existing site>" or
+     "brutalist like <other site>." Zero search time, high
+     consistency — but use this deliberately for maybe ~20% of
+     sites, not as a lazy default. Otherwise the whole portfolio
+     collapses into one look.
+
+  D. USER KNOWS EXACTLY
+     They describe in 1-2 sentences, you build against it. Still
+     pick a palette + type system BEFORE writing HTML. "Minimal
+     black and white" is not a palette; "#0a0a0a on #f6f6f6 with
+     Söhne for display and Inter for body" is.
+
+  Default recommendation if the user has no preference: A if they
+  have a collection, otherwise B. Never start a site without one
+  of these four having happened.
+
+Atlas/design.md FORMAT:
+  Source: <URL or description>
+  Palette: <3-5 hex values sampled from references>
+  Display type: <font class + weight>
+  Body type: <font class>
+  Mood: <3 adjectives>
+  Distinctive ornament: <what makes these different from the last
+                          site the agent built>
+
+TEST: if someone asks "what visual family is this site in?" after
+the agent has started coding, it should be able to answer in one
+breath. If the answer is "uhh, same as the last one," it skipped
+this step. Stop and go do it.
+```
+
+---
+
+## RULE: WEB3FORMS IS THE ONLY CONTACT CHANNEL
+
+```
+EVERY site the agent builds — landing pages, waitlists, real
+businesses, product interest sites, agency sites, portfolio sites —
+uses the SAME shared Web3Forms access key for its contact form. No
+bespoke email addresses per site. No mailto: links. No contact
+forms on other providers. No Formspree / Getform / Netlify Forms
+side-paths.
+
+WHY:
+  The user does not want to manage a graveyard of per-project
+  email addresses (hello@project1.tld, contact@project2.tld, etc)
+  each forwarded to an inbox that may or may not still work. One
+  central Web3Forms key means every inbound inquiry lands in ONE
+  inbox, in ONE format, with ONE subject-line convention,
+  regardless of which site it came from. The `subject` hidden
+  field identifies which site fired the submission.
+
+HOW TO IMPLEMENT:
+  - Single `<form action="https://api.web3forms.com/submit">`
+    with the shared access_key from ~/.introdote/secrets.env
+    (WEB3FORMS_ACCESS_KEY). Web3Forms keys are browser-side
+    identifiers designed to be public; they are rate-limited and
+    tied to a single destination inbox, so hardcoding inline is
+    safe and expected.
+  - Set a descriptive `subject` hidden field — e.g.
+    `"New inquiry · <SITE NAME>"` — so the user can triage the
+    shared inbox by subject.
+  - Include a hidden honeypot field (e.g. `botcheck`).
+  - Submit via fetch() with application/json (not form-encoded)
+    so an inline success message can render without a full page
+    reload.
+  - DO NOT render mailto: links anywhere on the site. DO NOT
+    invent project-specific email addresses in UI text. If a
+    visitor wants to contact, they use the form.
+  - Fallback error messages on submit failure should say "please
+    try again in a moment" — never "email us at X instead,"
+    because there is no X.
+
+WHAT TO SHOW INSTEAD OF AN EMAIL ADDRESS:
+  - "Form below on this page"
+  - "Contact in person" / address-based contact for physical
+    businesses
+  - A tel: link IS allowed if the user has a real phone number; it
+    is NOT a fire-and-forget address like email
+
+When retrofitting older sites that still have mailto: links, fix
+them the next time any file in the project is touched.
+```
+
+---
+
+## RULE: REAL CHROME VIA CDP (not headless puppeteer)
+
+```
+When the agent needs a browser for screenshots, scraping, preview
+rendering, visual regression, Lighthouse audits, or any "what does
+this look like in a real browser" task — DO NOT use puppeteer's
+default bundled Chromium, and DO NOT use `headless: true` on a
+launched instance.
+
+Use REAL CHROME via the DevTools Protocol instead.
+
+WHY:
+  Headless Chromium silently disagrees with real Chrome on fonts,
+  GPU, WebGL, H.264/AAC codecs, CORS edge cases, and a growing
+  list of fingerprint-based bot detections. Pages that look
+  perfect in the user's browser render broken in headless mode
+  and debugging time gets wasted on what looks like a code bug.
+  The real Chrome.app on disk is always right.
+
+HOW:
+  1. Spawn the user's installed Chrome.app with:
+       --remote-debugging-port=9222
+       --user-data-dir=<temp dir>        ← dedicated profile, do
+                                           NOT touch the user's
+                                           real profile
+       --window-position=9999,9999       ← offscreen, stays out
+                                           of the way
+       --no-first-run --no-default-browser-check
+  2. Wait until port 9222 accepts a TCP connection.
+  3. `puppeteer.connect({ browserURL: 'http://127.0.0.1:9222' })`
+  4. Do the work — newPage(), goto(), screenshot(), etc.
+  5. `browser.disconnect()` (NOT `browser.close()` — own the
+     lifecycle via the spawned process, not via puppeteer).
+  6. SIGTERM the Chrome process and rm the temp user-data-dir.
+
+OS CHROME PATHS:
+  macOS:   /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+  Linux:   /usr/bin/google-chrome-stable  (or google-chrome via PATH)
+  Windows: C:\Program Files\Google\Chrome\Application\chrome.exe
+
+WHEN HEADLESS IS OK:
+  Almost never. If the task is a one-shot fetch of plain HTML
+  with no JS execution, just use curl or a HTTP fetch helper. If
+  it needs a browser at all, it needs a real one.
+
+DON'T: puppeteer.launch({ headless: true })
+DO:    spawn Chrome with --remote-debugging-port, puppeteer.connect()
+```
+
+---
+
 ## Architecture
 
 ```
@@ -864,8 +1034,41 @@ DEPLOY CODE:
 
 CREATE SUBDOMAIN:
   → Create DNS record pointing subdomain at hosting
-  → If provider supports vhosts: create vhost mapping
+  → If the provider has an explicit vhost/website mapping table
+    (many shared hosts do: Plesk, cPanel, lima-city, etc.), the
+    vhost record may need to be created OR updated to point at
+    the target folder.
+  → If the host auto-creates a default vhost at domain registration
+    time (lima-city does this, pointing new domains at a placeholder
+    folder), the agent should UPDATE the existing vhost rather than
+    creating a new one.
+  → If the deploy target is a Vercel-style edge host, create a
+    CNAME record pointing `<sub>.<root>` at the platform's edge
+    (e.g. `cname.vercel-dns.com`). Then attach the domain to the
+    project via the platform's CLI or API. Fresh subdomains on
+    some platforms do NOT auto-provision the Let's Encrypt cert;
+    force it explicitly (e.g. `vercel certs issue <sub>.<root>`)
+    if HTTPS returns SSL_ERROR_SYSCALL after DNS has propagated.
   → Report: "✓ subdomain.domain.com is ready"
+
+  HOSTS THAT EXPOSE A VHOST API: know the shape before calling
+    Many shared-hosting control panels expose read endpoints for
+    vhost state but require very specific body shapes on writes.
+    When a PUT/PATCH returns 400 with a validation error rather
+    than 404, the route exists and the body is wrong — read the
+    error fields (in whatever language they're returned in) to
+    infer the required field names, and check the provider's
+    frontend JS bundle (`/packs/js/*.js` or similar) for string
+    literals that reveal the valid enum values on fields like
+    `type` / `strategy` / `content_strategy`.
+
+    Example shape the agent discovered for one common shared
+    host: `PUT /<admin>/websites/{vhost_id}.json` with body
+    `{"path":"<folder>","content_strategy":"path"}` — the field
+    name is `path` (not the `document_root` that GET returns),
+    and `content_strategy` is a required enum. Document the
+    per-host invariants in `~/.introdote/providers/<host>.yaml`
+    once discovered.
 
 SET UP CRON JOB:
   → Read capabilities.yaml → cron.provider
@@ -1063,6 +1266,192 @@ LAUNCH READINESS (agent offers, user picks):
   □ Marketing page: generate landing page if the project is an API/tool
 
 Each item: agent does the work, user approves the result.
+```
+
+---
+
+## Marketing & SEO: the "live site isn't launched" playbook
+
+```
+Deploying is not launching. A site with no Business Profile listing,
+no schema, no meta description, and no reason for humans to visit it
+is a blank URL.
+
+Before reporting a project as "shipped", run this checklist. It
+applies to ANY service website (agency, consultancy, shop, portfolio,
+SaaS landing page). Mobile apps and API libraries use different
+playbooks.
+```
+
+### Executive summary (if you do nothing else)
+
+```
+1. Win Google Business Profile — regional service businesses live
+   or die on GBP + reviews + map pack. Claim it, fill every field,
+   post weekly. Single highest-ROI action for any local business.
+2. Ship JSON-LD at deploy — Organization, LocalBusiness /
+   ProfessionalService, Service (per offering), Person (founder),
+   FAQPage. Injected in the same PR that ships the site.
+3. Write for AI Overviews, not the SERP — question-format H2s,
+   a 40-60 word direct answer under each, then depth. E-E-A-T's
+   "experience" axis wants first-hand "we deployed X for Y"
+   stories.
+4. One real case study beats ten blog posts — publish 1-3 named,
+   metric-bearing customer stories before any listicle. ~73% of
+   B2B buyers say case studies materially influence purchase.
+5. Referrals + targeted outbound pay rent for the first 18 months.
+   SEO is the compounding bet, not the Q1 lead source.
+```
+
+### On-page SEO punchlist (inject at deploy, not "later")
+
+Required `<head>` per page:
+- `<title>` — 50-60 chars, format `<Keyword> | <Brand>` or `<Service> in <City> | <Brand>`
+- `<meta name="description">` — 140-160 chars, unique per page
+- `<link rel="canonical">` — self-canonical, absolute URL
+- `<meta name="robots" content="index,follow">`
+- `<html lang="...">` with honest locale code; for bilingual add `hreflang`
+- Open Graph + Twitter card: `og:title`, `og:description`, `og:image` (1200×630), `og:url`, `twitter:card=summary_large_image`
+- Favicon + `apple-touch-icon` (180×180) + `theme-color`
+
+JSON-LD blocks (one `<script type="application/ld+json">` each):
+- **Organization / ProfessionalService**: name, url, logo, sameAs
+  (LinkedIn, GitHub, country-relevant networks), contactPoint,
+  address (PostalAddress with addressRegion + addressCountry),
+  areaServed, geo, priceRange
+- **Service** per offering: serviceType, provider (refs Org),
+  areaServed, hasOfferCatalog
+- **Person** for the founder: name, jobTitle, worksFor, sameAs,
+  knowsAbout — feeds E-E-A-T signals AI Overviews lean on
+- **FAQPage** on homepage + service pages — AI Overviews scrape
+  these aggressively
+- **BreadcrumbList** for nested pages
+
+Validate with Google's Rich Results Test before merge. NEVER mark
+up content that isn't visible on the page (hidden schema = spam
+policy violation = manual action).
+
+Sitemap + robots:
+- `/sitemap.xml` auto-generated, listed in `robots.txt`, submitted
+  to Google Search Console + Bing Webmaster Tools
+- `/robots.txt` — allow all, point to sitemap, **do NOT block
+  JS/CSS**, **do NOT block GPTBot/ClaudeBot/PerplexityBot** (you
+  want to be cited in AI answers — that's the new map pack)
+- `lastmod` must be honest — a stale lastmod = ignored sitemap
+
+Performance that moves rankings:
+- LCP < 2.5s. Self-host fonts with `font-display: swap`, preload
+  the hero image, no render-blocking JS in `<head>`.
+
+### Local SEO essentials
+
+Google Business Profile:
+- Claim + verify. Use the LEGAL business name EXACTLY. No keyword
+  stuffing — fastest path to suspension.
+- Primary category is the strongest relevance signal. Add 2-4
+  secondary.
+- Service area: specific towns/regions, not a 200km blob.
+- Fill every field. Post weekly — dead profiles get demoted.
+- Reviews: one-tap review link to every closed client. Reply
+  within 48h, naming the service in the reply.
+
+NAP discipline (Name / Address / Phone):
+- Pick ONE canonical format. Use it everywhere — website footer,
+  GBP, every directory, LinkedIn, email signature. Even small
+  differences (e.g. "Firma GmbH" vs "Firma") create different
+  entities to Google.
+
+Regional citations — look up the country-specific Tier-1 list for
+the target market (Yelp, Bing Places, Apple Business Connect are
+global; local directories, chambers of commerce, and trade
+association listings are country-specific and high-payoff).
+
+### Content strategy for regional B2B consulting
+
+Publish (priority order):
+1. Named case studies with numbers
+2. A "how we work" page (process, timeline, engagement shape)
+3. Pricing transparency — at minimum a starting range
+4. Short opinionated guides per core service (Q-format H2s,
+   50-word direct answer, then depth) — feeds AI Overviews
+5. Local-angle content — specificity is the moat
+6. Founder social presence (LinkedIn in most markets) — 2-3 posts
+   per week, not a blog cadence
+
+Don't publish:
+- AI-spun "ultimate guides" with no first-hand experience (E-E-A-T
+  demotion)
+- Generic listicles — zero ranking potential, zero conversion
+- A blog you can't sustain (empty `/blog` > stale `/blog`)
+
+### Channel mix sanity check (small regional consultancy, year 1)
+
+```
+Referrals & word-of-mouth          35%  ← highest close rate, lowest CAC
+Targeted outbound (hand-picked)    25%  ← real revenue in months 1-6
+Founder LinkedIn / equivalent      15%  ← cheapest credibility signal
+SEO + content                      10%  ← compounding bet, 6-12 mo payoff
+Local events / associations        10%  ← regional B2B still shakes hands
+Paid ads                           5%   ← brand name only, skip social
+```
+
+SEO leads close at ~14% vs ~1.7% for cold outbound — but SEO takes
+6-12 months to produce volume. Run both, eyes open about which one
+feeds the pipeline THIS quarter.
+
+### Traps to avoid
+
+```
+1. Keyword-stuffing the Business Profile name. Fastest path to
+   suspension.
+2. Treating SEO as a launch event. 12-month compounding loop.
+   Measure quarterly, not weekly.
+3. Hidden schema markup. Quarterly audit — page content must match.
+4. GA4 by default in the EU. Multiple EU DPAs have ruled it
+   illegal; consent banners cost ~55% of the data. Use Plausible
+   (or Fathom, Umami) — EU-hosted, no cookie banner, GDPR by
+   default. Skip GA4 unless a client demands it.
+5. Blocking AI crawlers in robots.txt. You WANT to be cited in
+   ChatGPT, Claude, Perplexity, AI Overviews. That's the new
+   map pack.
+6. Targeting generic head terms as keywords. You lose to the
+   incumbents. Target specific + regional + intent-rich phrases.
+7. Publishing in regulated markets without the legally-required
+   imprint / privacy pages. Legally required, and quality raters
+   check.
+8. Letting the blog die. 4 great pieces a year > 4 mediocre/month.
+9. No tracking at all. Even the cheapest Plausible tier tells you
+   which pages convert. Flying blind costs more than the monthly
+   fee.
+10. Hiring an SEO agency in month 1. Ship fast site + schema +
+    clear story first. Anything else is premature optimization
+    before product-market fit.
+```
+
+### What the agent should just DO at launch
+
+When shipping a service website, inject the following automatically
+(they are cheap and universally correct):
+
+```
+1. Title, description, canonical, OG tags, Twitter card     ← required
+2. Organization + ProfessionalService JSON-LD              ← required
+3. FAQPage JSON-LD if there's any Q&A content on the site  ← required
+4. Person JSON-LD for the founder if name is known         ← recommended
+5. sitemap.xml + robots.txt with AI crawlers ALLOWED       ← required
+6. Plausible (or equivalent) snippet — only after user says yes
+7. Imprint + privacy stub pages for regulated markets      ← required
+8. Lighthouse audit, fix any red Core Web Vitals           ← recommended
+```
+
+Then OFFER (don't just do):
+
+```
+□ Register + fill Google Business Profile (opens GBP in browser)
+□ Submit sitemap to Google Search Console
+□ Submit to country-specific tier-1 business directories
+□ Draft a launch social post for the founder
+□ Generate 3 case-study templates the user can fill in
 ```
 
 ---
