@@ -1,0 +1,22 @@
+{
+  "status": {
+    "installed": false,
+    "oye_dir": "~/.introdote",
+    "files": {
+      "secrets.env": false,
+      "capabilities.yaml": false,
+      "PLAYBOOK.md": false
+    }
+  },
+  "providers": [],
+  "secrets": {},
+  "capabilities": {
+    "configured": false,
+    "capabilities": {}
+  },
+  "devDeploys": { "deploys": [] },
+  "launched": [],
+  "buried": [],
+  "liveSubdomains": [],
+  "generated_at": "1970-01-01T00:00:00Z"
+}
